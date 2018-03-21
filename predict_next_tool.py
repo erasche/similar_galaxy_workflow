@@ -9,8 +9,7 @@ import h5py as h5
 
 # machine learning library
 from keras.models import Sequential
-from keras.layers import Dense
-from keras.layers import LSTM
+from keras.layers import Dense, LSTM, Conv1D, MaxPooling1D, Dropout, GRU
 from keras.layers.embeddings import Embedding
 from keras.callbacks import ModelCheckpoint
 from keras.models import model_from_json
@@ -64,14 +63,26 @@ class PredictNextTool:
         print ("Dividing data...")
         n_epochs = 20
         batch_size = 50
-        dropout = 0.75
+        dropout = 0.5
         lstm_units = 256
-        embedding_vec_size = 32
+        embedding_vec_size = 100
+
+        # Convolution parameters
+        kernel_size = 5
+        filters = 64
+        pool_size = 4
         train_data, train_labels, test_data, test_labels, dimensions, dictionary, reverse_dictionary = self.divide_train_test_data()
-        # define recurrent network
         model = Sequential()
-        model.add( Embedding( dimensions, embedding_vec_size, mask_zero=True ) )
-        model.add( LSTM( lstm_units, dropout=dropout, return_sequences=False ) )
+        model.add( Embedding( dimensions, embedding_vec_size ) )
+        model.add( Dropout( dropout ) )
+        model.add( Conv1D( filters,
+            kernel_size,
+            padding='valid',
+            activation='relu',
+            strides=1 ) )
+        model.add( MaxPooling1D( pool_size=pool_size ) )
+        model.add( GRU( lstm_units, dropout=dropout, return_sequences=True ) )
+        model.add( GRU( lstm_units, dropout=dropout ) )
         model.add( Dense( dimensions, activation='softmax' ) )
         model.compile( loss='binary_crossentropy', optimizer='adam', metrics=[ categorical_accuracy ] )
         
