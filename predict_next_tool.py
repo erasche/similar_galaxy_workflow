@@ -84,7 +84,7 @@ class PredictNextTool:
         model.add( GRU( lstm_units, dropout=dropout, return_sequences=True ) )
         model.add( GRU( lstm_units, dropout=dropout ) )
         model.add( Dense( dimensions, activation='softmax' ) )
-        model.compile( loss='binary_crossentropy', optimizer='adam', metrics=[ categorical_accuracy ] )
+        model.compile( loss='binary_crossentropy', optimizer='rmsprop', metrics=[ categorical_accuracy ] )
         
         # save the network as json
         model_json = model.to_json()
