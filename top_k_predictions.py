@@ -19,9 +19,10 @@ class EvaluateTopResults:
     def __init__( self ):
         """ Init method. """
         self.current_working_dir = os.getcwd()
-        self.network_config_json_path = self.current_working_dir + "/data/best_model.json"
-        self.weights_path = self.current_working_dir + "/data/weights/best_weights.hdf5"
+        self.network_config_json_path = self.current_working_dir + "/data/model.json"
+        self.weights_path = self.current_working_dir + "/data/weights/weights-epoch-20.hdf5"
         self.test_labels_path = self.current_working_dir + "/data/test_data_labels_dict.txt"
+        self.test_labels_actual_path = self.current_working_dir + "/data/test_actual_data_labels_dict.txt"
         self.train_labels_path = self.current_working_dir + "/data/train_data_labels_dict.txt"
         self.train_class_acc = self.current_working_dir + "/data/train_class_acc.txt"
         self.test_class_acc = self.current_working_dir + "/data/test_class_acc.txt"
@@ -72,7 +73,7 @@ class EvaluateTopResults:
             prediction = np.reshape( prediction, ( dimensions, ) )
             prediction_pos = np.argsort( prediction, axis=0 )
             label_pos = data[ i ][ 1 ].split( "," )
-            len_label_pos = 2 #len( label_pos )
+            len_label_pos = len( label_pos )
             top_prediction_pos = prediction_pos[ -len_label_pos: ]
             top_prediction_pos = [ item for item in reversed( top_prediction_pos ) ]
             actual_tools = [ reverse_data_dictionary[ ps ] for ps in label_pos ]
@@ -141,12 +142,14 @@ class EvaluateTopResults:
             reverse_data_dictionary = json.loads( rev_data_dict.read() )
         with open( self.compatible_tools_filetypes, 'r' ) as compatible_file:
             compatible_filetypes = json.loads( compatible_file.read() )
+        with open( self.test_labels_actual_path, 'r' ) as test_data_actual_labels:
+            test_actual_labels = json.loads( test_data_actual_labels.read() )
         dimensions = len( data_dict ) + 1
         print ( "Get topn predictions for %d test samples" % len( test_labels ) )
         test_class_topk_accuracy, test_perf = self.get_per_class_topk_acc( test_labels, loaded_model, dimensions, reverse_data_dictionary, compatible_filetypes )
-        with open( self.test_class_topk_accuracy, 'w' ) as test_topk_file:
+        '''with open( self.test_class_topk_accuracy, 'w' ) as test_topk_file:
             test_topk_file.write( json.dumps( test_class_topk_accuracy ) )
-        '''print ( "Get topn predictions for %d train samples" % len( train_labels ) )
+        print ( "Get topn predictions for %d train samples" % len( train_labels ) )
         train_class_topk_accuracy, train_perf = self.get_per_class_topk_acc( train_labels, loaded_model, dimensions, reverse_data_dictionary, filetypes )
         train_perf.extend( test_perf )
         with open( self.train_class_topk_accuracy, 'w' ) as train_topk_file:

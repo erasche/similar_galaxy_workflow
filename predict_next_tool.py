@@ -8,11 +8,10 @@ import os
 
 # machine learning library
 from keras.models import Sequential
-from keras.layers import Dense, LSTM, GRU, Dropout
+from keras.layers import Dense, Dropout, Flatten
 from keras.layers.embeddings import Embedding
 from keras.callbacks import ModelCheckpoint, Callback
 from keras import regularizers
-from keras.layers.core import SpatialDropout1D
 from keras.optimizers import RMSprop
 
 import prepare_data
@@ -44,11 +43,12 @@ class PredictNextTool:
             json_file.write( model )
 
     @classmethod
-    def evaluate_LSTM_network( self, n_epochs=10, batch_size=20, dropout=0.2, lstm_units=128, embedding_vec_size=128, lr=0.001, decay=1e-4 ):
+    def evaluate_deep_network( self, n_epochs=20, batch_size=20, dropout=0.22, dense_units=128, embedding_vec_size=128, lr=0.001, decay=1e-4 ):
         """
-        Create LSTM network and evaluate performance
+        Create a deep network and evaluate performance
         """
         print ( "Dividing data..." )
+        max_length = 40
         # get training and test data and their labels
         data = prepare_data.PrepareData()
         train_data, train_labels, test_data, test_labels, test_actual_data, test_actual_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
@@ -57,11 +57,12 @@ class PredictNextTool:
         optimizer = RMSprop( lr=lr )
         # define recurrent network
         model = Sequential()
-        model.add( Embedding( dimensions, embedding_vec_size, mask_zero=True ) )
-        model.add( SpatialDropout1D( dropout ) )
-        model.add( GRU( lstm_units, dropout=dropout, recurrent_dropout=dropout, return_sequences=True, activation='elu' ) )
+        model.add( Embedding( dimensions, embedding_vec_size, input_length=max_length ) )
+        model.add( Flatten() )
         model.add( Dropout( dropout ) )
-        model.add( GRU( lstm_units, dropout=dropout, recurrent_dropout=dropout, return_sequences=False, activation='elu' ) )
+        model.add( Dense( dense_units, activation='elu' ) )
+        model.add( Dropout( dropout ) )
+        model.add( Dense( dense_units, activation='elu' ) )
         model.add( Dropout( dropout ) )
         model.add( Dense( dimensions, activation='sigmoid' ) )
         model.compile( loss="binary_crossentropy", optimizer=optimizer )
@@ -84,8 +85,8 @@ class PredictNextTool:
         #np.savetxt( self.train_top_compatibility_pred_path, predict_callback_train.abs_compatible_precision, delimiter="," )
         np.savetxt( self.test_abs_top_pred_path, predict_callback_test.abs_precision, delimiter="," )
         np.savetxt( self.test_top_compatibility_pred_path, predict_callback_test.abs_compatible_precision, delimiter="," )
-        np.savetxt( self.test_actual_abs_top_pred_path, predict_callback_test.abs_precision, delimiter="," )
-        np.savetxt( self.test_actual_top_compatibility_pred_path, predict_callback_test.abs_compatible_precision, delimiter="," )
+        np.savetxt( self.test_actual_abs_top_pred_path, predict_callback_test_actual.abs_precision, delimiter="," )
+        np.savetxt( self.test_actual_top_compatibility_pred_path, predict_callback_test_actual.abs_compatible_precision, delimiter="," )
         print ( "Training finished" )
 
 
@@ -151,6 +152,6 @@ if __name__ == "__main__":
         exit( 1 )
     start_time = time.time()
     predict_tool = PredictNextTool()
-    predict_tool.evaluate_LSTM_network()
+    predict_tool.evaluate_deep_network()
     end_time = time.time()
     print ("Program finished in %s seconds" % str( end_time - start_time ))
