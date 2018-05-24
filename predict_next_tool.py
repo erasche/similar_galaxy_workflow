@@ -43,15 +43,15 @@ class PredictNextTool:
             json_file.write( model )
 
     @classmethod
-    def evaluate_deep_network( self, n_epochs=20, batch_size=20, dropout=0.22, dense_units=128, embedding_vec_size=128, lr=0.001, decay=1e-4 ):
+    def evaluate_deep_network( self, n_epochs=40, batch_size=20, dropout=0.5, dense_units=128, embedding_vec_size=128, lr=0.001, decay=1e-4 ):
         """
         Create a deep network and evaluate performance
         """
         print ( "Dividing data..." )
-        max_length = 40
         # get training and test data and their labels
         data = prepare_data.PrepareData()
         train_data, train_labels, test_data, test_labels, test_actual_data, test_actual_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
+        max_length = train_data.shape[ 1 ]
         # Increase the dimension by 1 to mask the 0th position
         dimensions = len( dictionary ) + 1
         optimizer = RMSprop( lr=lr )
