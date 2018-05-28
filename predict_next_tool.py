@@ -8,7 +8,9 @@ import os
 
 # machine learning library
 from sklearn.neural_network import MLPClassifier
-from sklearn.svm import SVC
+from sklearn.svm import LinearSVC
+from sklearn.tree import DecisionTreeClassifier
+from sklearn.ensemble import RandomForestClassifier
 
 import prepare_data
 
@@ -31,7 +33,7 @@ class PredictNextTool:
         self.test_actual_top_compatibility_pred_path = self.current_working_dir + "/data/test_actual_top_compatible_pred.txt"
 
     @classmethod
-    def evaluate_svc( self ):
+    def evaluate_dt( self ):
         """
         Predict using support vector classifier
         """
@@ -39,19 +41,42 @@ class PredictNextTool:
         # get training and test data and their labels
         data = prepare_data.PrepareData()
         train_data, train_labels, test_data, test_labels, test_actual_data, test_actual_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
-        max_length = train_data.shape[ 1 ]
-        # Increase the dimension by 1 to mask the 0th position
-        dimensions = len( dictionary ) + 1
-        model = SVC()
-        print( "Training support vector classifier..." )
+        model = DecisionTreeClassifier()
+        print( "Training decision tree classifier..." )
         model.fit( train_data, train_labels )
         print ( "Training finished" )
         print( "Predicting..." )
-        predictions = model.predict_proba( test_data )
-        self.verify_predictions( test_data, test_labels, predictions, dictionary, reverse_dictionary, next_compatible_tools )
+        size = test_labels.shape[ 0 ]
+        dimensions = test_labels.shape[ 1 ]
+        topk_abs_pred = np.zeros( [ size ] )
+        for i in range( size ):
+            topk_acc = 0.0
+            actual_classes_pos = np.where( test_labels[ i ] > 0 )[ 0 ]
+            topk = 1 #len( actual_classes_pos )
+            test_sample = np.reshape( test_data[ i ], ( 1, test_data.shape[ 1 ] ) )
+            test_sample_pos = np.where( test_data[ i ] > 0 )[ 0 ]
+            test_sample_tool_pos = test_data[ i ][ test_sample_pos[ 0 ]: ]
+            sample = np.reshape( test_data[ i ], ( 1, test_data[ i ].shape[ 0 ] ) )
+            prediction = model.predict_proba( sample )
+            #prediction = np.reshape( prediction, ( dimensions, ) )
+            print prediction
+            prediction_pos = np.argsort( prediction, axis=-1 )
+            topk_prediction_pos = prediction_pos[ -topk: ]
+            sequence_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in test_sample_tool_pos ]
+            actual_next_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in actual_classes_pos ]
+            top_predicted_next_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in topk_prediction_pos if int( tool_pos ) != 0 ]
+            seq_last_tool = sequence_tool_names[ -1 ]
+            next_possible_tools = next_compatible_tools[ seq_last_tool ].split( "," )
+            for pred_pos in topk_prediction_pos:
+                if pred_pos in actual_classes_pos or reverse_dictionary[ int( pred_pos ) ] in next_possible_tools:
+                    topk_acc += 1.0
+            topk_acc = topk_acc / float( topk )
+            topk_abs_pred[ i ] = topk_acc
+            print( "Topk precision: %.2f" % topk_acc )
+        print( "Average topk absolute precision: %.2f" % ( np.mean( topk_abs_pred ) ) )
 
     @classmethod
-    def evaluate_mlp( self, dense_units=512 ):
+    def evaluate_mlp( self, dense_units=1024 ):
         """
         Predict using multi-layer perceptron
         """
@@ -59,11 +84,8 @@ class PredictNextTool:
         # get training and test data and their labels
         data = prepare_data.PrepareData()
         train_data, train_labels, test_data, test_labels, test_actual_data, test_actual_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
-        max_length = train_data.shape[ 1 ]
-        # Increase the dimension by 1 to mask the 0th position
-        dimensions = len( dictionary ) + 1
-        model = MLPClassifier( hidden_layer_sizes=( dense_units, dense_units ), verbose=True, max_iter=200, learning_rate='adaptive', batch_size=20 )
-        print( "Training MLP..." )
+        model = MLPClassifier( hidden_layer_sizes=( dense_units, dense_units ), verbose=True, learning_rate='adaptive', batch_size=20, tol=1e-5 )
+        print( "Training Multi-layer perceptron..." )
         model.fit( train_data, train_labels )
         print ( "Training finished" )
         print( "Predicting..." )
@@ -82,7 +104,7 @@ class PredictNextTool:
         for i in range( size ):
             topk_acc = 0.0
             actual_classes_pos = np.where( test_labels[ i ] > 0 )[ 0 ]
-            topk = 1 #len( actual_classes_pos )
+            topk = len( actual_classes_pos )
             test_sample = np.reshape( test_data[ i ], ( 1, test_data.shape[ 1 ] ) )
             test_sample_pos = np.where( test_data[ i ] > 0 )[ 0 ]
             test_sample_tool_pos = test_data[ i ][ test_sample_pos[ 0 ]: ]
@@ -99,14 +121,7 @@ class PredictNextTool:
                 if pred_pos in actual_classes_pos or reverse_dictionary[ int( pred_pos ) ] in next_possible_tools:
                     topk_acc += 1.0
             topk_acc = topk_acc / float( topk )
-            # read tool names using reverse dictionary
-            
-            
-            # find false positives
-            #false_positives = [ tool_name for tool_name in top_predicted_next_tool_names if tool_name not in actual_next_tool_names ]
-            #absolute_precision = 1 - ( len( false_positives ) / float( len( topk_prediction_pos ) ) )
             topk_abs_pred[ i ] = topk_acc
-            print( "Topk precision: %.2f" % topk_acc )
         print( "Average topk absolute precision: %.2f" % ( np.mean( topk_abs_pred ) ) )
 
 
@@ -118,5 +133,6 @@ if __name__ == "__main__":
     start_time = time.time()
     predict_tool = PredictNextTool()
     predict_tool.evaluate_mlp()
+    #predict_tool.evaluate_dt()
     end_time = time.time()
     print ("Program finished in %s seconds" % str( end_time - start_time ))
