@@ -7,12 +7,8 @@ import time
 import os
 
 # machine learning library
-from keras.models import Sequential
-from keras.layers import Dense, Dropout, Flatten
-from keras.layers.embeddings import Embedding
-from keras.callbacks import ModelCheckpoint, Callback
-from keras import regularizers
-from keras.optimizers import RMSprop
+from sklearn.neural_network import MLPClassifier
+from sklearn.svm import SVC
 
 import prepare_data
 
@@ -35,17 +31,9 @@ class PredictNextTool:
         self.test_actual_top_compatibility_pred_path = self.current_working_dir + "/data/test_actual_top_compatible_pred.txt"
 
     @classmethod
-    def save_network( self, model ):
+    def evaluate_svc( self ):
         """
-        Save the network as json file
-        """
-        with open( self.network_config_json_path, "w" ) as json_file:
-            json_file.write( model )
-
-    @classmethod
-    def evaluate_deep_network( self, n_epochs=40, batch_size=20, dropout=0.5, dense_units=128, embedding_vec_size=128, lr=0.001, decay=1e-4 ):
-        """
-        Create a deep network and evaluate performance
+        Predict using support vector classifier
         """
         print ( "Dividing data..." )
         # get training and test data and their labels
@@ -54,95 +42,72 @@ class PredictNextTool:
         max_length = train_data.shape[ 1 ]
         # Increase the dimension by 1 to mask the 0th position
         dimensions = len( dictionary ) + 1
-        optimizer = RMSprop( lr=lr )
-        # define recurrent network
-        model = Sequential()
-        model.add( Embedding( dimensions, embedding_vec_size, input_length=max_length ) )
-        model.add( Flatten() )
-        model.add( Dropout( dropout ) )
-        model.add( Dense( dense_units, activation='elu' ) )
-        model.add( Dropout( dropout ) )
-        model.add( Dense( dense_units, activation='elu' ) )
-        model.add( Dropout( dropout ) )
-        model.add( Dense( dimensions, activation='sigmoid' ) )
-        model.compile( loss="binary_crossentropy", optimizer=optimizer )
-        # save the network as json
-        self.save_network( model.to_json() )
-        model.summary()
-        # create checkpoint after each epoch - save the weights to h5 file
-        checkpoint = ModelCheckpoint( self.epoch_weights_path, verbose=2, mode='max' )
-        #predict_callback_train = PredictCallback( train_data, train_labels, n_epochs, reverse_dictionary, next_compatible_tools )
-        predict_callback_test_actual = PredictCallback( test_actual_data, test_actual_labels, n_epochs, reverse_dictionary, next_compatible_tools )
-        predict_callback_test = PredictCallback( test_data, test_labels, n_epochs, reverse_dictionary, next_compatible_tools )
-        callbacks_list = [ checkpoint, predict_callback_test_actual, predict_callback_test ] #predict_callback_train
-        print ( "Start training..." )
-        model_fit_callbacks = model.fit( train_data, train_labels, validation_data=( test_data, test_labels ), batch_size=batch_size, epochs=n_epochs, callbacks=callbacks_list, shuffle=True )
-        loss_values = model_fit_callbacks.history[ "loss" ]
-        validation_loss = model_fit_callbacks.history[ "val_loss" ]
-        np.savetxt( self.loss_path, np.array( loss_values ), delimiter="," )
-        np.savetxt( self.val_loss_path, np.array( validation_loss ), delimiter="," )
-        #np.savetxt( self.train_abs_top_pred_path, predict_callback_train.abs_precision, delimiter="," )
-        #np.savetxt( self.train_top_compatibility_pred_path, predict_callback_train.abs_compatible_precision, delimiter="," )
-        np.savetxt( self.test_abs_top_pred_path, predict_callback_test.abs_precision, delimiter="," )
-        np.savetxt( self.test_top_compatibility_pred_path, predict_callback_test.abs_compatible_precision, delimiter="," )
-        np.savetxt( self.test_actual_abs_top_pred_path, predict_callback_test_actual.abs_precision, delimiter="," )
-        np.savetxt( self.test_actual_top_compatibility_pred_path, predict_callback_test_actual.abs_compatible_precision, delimiter="," )
+        model = SVC()
+        print( "Training support vector classifier..." )
+        model.fit( train_data, train_labels )
         print ( "Training finished" )
+        print( "Predicting..." )
+        predictions = model.predict_proba( test_data )
+        self.verify_predictions( test_data, test_labels, predictions, dictionary, reverse_dictionary, next_compatible_tools )
 
+    @classmethod
+    def evaluate_mlp( self, dense_units=512 ):
+        """
+        Predict using multi-layer perceptron
+        """
+        print ( "Dividing data..." )
+        # get training and test data and their labels
+        data = prepare_data.PrepareData()
+        train_data, train_labels, test_data, test_labels, test_actual_data, test_actual_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
+        max_length = train_data.shape[ 1 ]
+        # Increase the dimension by 1 to mask the 0th position
+        dimensions = len( dictionary ) + 1
+        model = MLPClassifier( hidden_layer_sizes=( dense_units, dense_units ), verbose=True, max_iter=200, learning_rate='adaptive', batch_size=20 )
+        print( "Training MLP..." )
+        model.fit( train_data, train_labels )
+        print ( "Training finished" )
+        print( "Predicting..." )
+        predictions = model.predict_proba( test_data )
+        self.verify_predictions( test_data, test_labels, predictions, dictionary, reverse_dictionary, next_compatible_tools )
 
-class PredictCallback( Callback ):
-    def __init__( self, test_data, test_labels, n_epochs, reverse_data_dictionary, next_compatible_tools ):
-        self.test_data = test_data
-        self.test_labels = test_labels
-        self.abs_precision = np.zeros( [ n_epochs ] )
-        self.abs_compatible_precision = np.zeros( [ n_epochs ] )
-        self.reverse_data_dictionary = reverse_data_dictionary
-        self.next_compatible_tools = next_compatible_tools
-
-    def on_epoch_end( self, epoch, logs={} ):
+    @classmethod 
+    def verify_predictions( self, test_data, test_labels, predictions, dictionary, reverse_dictionary, next_compatible_tools ):
         """
         Compute topk accuracy for each test sample
         """
-        x, y, reverse_data_dictionary, next_compatible_tools = self.test_data, self.test_labels, self.reverse_data_dictionary, self.next_compatible_tools
-        size = y.shape[ 0 ]
-        dimensions = y.shape[ 1 ]
+        size = test_labels.shape[ 0 ]
+        dimensions = test_labels.shape[ 1 ]
         topk_abs_pred = np.zeros( [ size ] )
-        topk_compatible_pred = np.zeros( [ size ] )
         # loop over all the test samples and find prediction precision
         for i in range( size ):
-            actual_classes_pos = np.where( y[ i ] > 0 )[ 0 ]
-            topk = len( actual_classes_pos )
-            test_sample = np.reshape( x[ i ], ( 1, x.shape[ 1 ] ) )
-            test_sample_pos = np.where( x[ i ] > 0 )[ 0 ]
-            test_sample_tool_pos = x[ i ][ test_sample_pos[ 0 ]: ]
-            prediction = self.model.predict( test_sample, verbose=0 )
+            topk_acc = 0.0
+            actual_classes_pos = np.where( test_labels[ i ] > 0 )[ 0 ]
+            topk = 1 #len( actual_classes_pos )
+            test_sample = np.reshape( test_data[ i ], ( 1, test_data.shape[ 1 ] ) )
+            test_sample_pos = np.where( test_data[ i ] > 0 )[ 0 ]
+            test_sample_tool_pos = test_data[ i ][ test_sample_pos[ 0 ]: ]
+            prediction = predictions[ i ]
             prediction = np.reshape( prediction, ( dimensions, ) )
             prediction_pos = np.argsort( prediction, axis=-1 )
             topk_prediction_pos = prediction_pos[ -topk: ]
-            # read tool names using reverse dictionary
-            sequence_tool_names = [ reverse_data_dictionary[ int( tool_pos ) ] for tool_pos in test_sample_tool_pos ]
-            actual_next_tool_names = [ reverse_data_dictionary[ int( tool_pos ) ] for tool_pos in actual_classes_pos ]
-            top_predicted_next_tool_names = [ reverse_data_dictionary[ int( tool_pos ) ] for tool_pos in topk_prediction_pos ]
-            # find false positives
-            false_positives = [ tool_name for tool_name in top_predicted_next_tool_names if tool_name not in actual_next_tool_names ]
-            absolute_precision = 1 - ( len( false_positives ) / float( len( actual_next_tool_names ) ) )
-            adjusted_precision = absolute_precision
-            # adjust the precision for compatible tools
+            sequence_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in test_sample_tool_pos ]
+            actual_next_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in actual_classes_pos ]
+            top_predicted_next_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in topk_prediction_pos if int( tool_pos ) != 0 ]
             seq_last_tool = sequence_tool_names[ -1 ]
-            if seq_last_tool in next_compatible_tools:
-                next_tools = next_compatible_tools[ seq_last_tool ]
-                next_tools = next_tools.split( "," )
-                if len( next_tools ) > 0:
-                    for false_pos in false_positives:
-                        if false_pos in next_tools:
-                            adjusted_precision += 1 / float( len( actual_next_tool_names ) )
-            topk_abs_pred[ i ] = absolute_precision
-            topk_compatible_pred[ i ] = adjusted_precision
-        self.abs_precision[ epoch ] = np.mean( topk_abs_pred )
-        self.abs_compatible_precision[ epoch ] = np.mean( topk_compatible_pred )
-        print( "Epoch %d topk absolute precision: %.2f" % ( epoch + 1, np.mean( topk_abs_pred ) ) )
-        print( "Epoch %d topk compatibility adjusted precision: %.2f" % ( epoch + 1, np.mean( topk_compatible_pred ) ) )
-        print( "-------" )
+            next_possible_tools = next_compatible_tools[ seq_last_tool ].split( "," )
+            for pred_pos in topk_prediction_pos:
+                if pred_pos in actual_classes_pos or reverse_dictionary[ int( pred_pos ) ] in next_possible_tools:
+                    topk_acc += 1.0
+            topk_acc = topk_acc / float( topk )
+            # read tool names using reverse dictionary
+            
+            
+            # find false positives
+            #false_positives = [ tool_name for tool_name in top_predicted_next_tool_names if tool_name not in actual_next_tool_names ]
+            #absolute_precision = 1 - ( len( false_positives ) / float( len( topk_prediction_pos ) ) )
+            topk_abs_pred[ i ] = topk_acc
+            print( "Topk precision: %.2f" % topk_acc )
+        print( "Average topk absolute precision: %.2f" % ( np.mean( topk_abs_pred ) ) )
 
 
 if __name__ == "__main__":
@@ -152,6 +117,6 @@ if __name__ == "__main__":
         exit( 1 )
     start_time = time.time()
     predict_tool = PredictNextTool()
-    predict_tool.evaluate_deep_network()
+    predict_tool.evaluate_mlp()
     end_time = time.time()
     print ("Program finished in %s seconds" % str( end_time - start_time ))
