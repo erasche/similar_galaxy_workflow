@@ -67,6 +67,35 @@ class PrepareData:
         return dictionary, reverse_dictionary
 
     @classmethod
+    def decompose_train_paths( self, paths, dictionary, file_pos, file_names ):
+        """
+        Decompose the paths to variable length sub-paths keeping the first tool fixed
+        """
+        sub_paths_pos = list()
+        sub_paths_names = list()
+        for index, item in enumerate( paths ):
+            tools = item.split( "," )
+            len_tools = len( tools )
+            if len_tools <= self.max_tool_sequence_len:
+                for window in range( 1, len_tools ):
+                    for start_pos in range( 0, len_tools - 1 ):
+                        sequence = tools[ start_pos: window + 1 ]
+                        tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in sequence ]
+                        if len( tools_pos ) > 1:
+                            tools_pos = ",".join( tools_pos )
+                            data_seq = ",".join( sequence )
+                            if tools_pos not in sub_paths_pos:
+                                sub_paths_pos.append( tools_pos )
+                            if data_seq not in sub_paths_names:
+                                sub_paths_names.append( data_seq )
+        with open( file_pos, "w" ) as sub_paths_file_pos:
+            for item in sub_paths_pos:
+                sub_paths_file_pos.write( "%s\n" % item )
+        with open( file_names, "w" ) as sub_paths_file_names:
+            for item in sub_paths_names:
+                sub_paths_file_names.write( "%s\n" % item )
+
+    @classmethod
     def decompose_paths( self, paths, dictionary, file_pos, file_names ):
         """
         Decompose the paths to variable length sub-paths keeping the first tool fixed
@@ -182,7 +211,8 @@ class PrepareData:
         test_paths = raw_paths[ :int( test_share ) ]
         train_paths = raw_paths[ int( test_share ): ]
         # process training and test paths in different ways
-        self.decompose_paths( train_paths, dictionary, self.train_file, self.train_sequence_file )
+        #self.decompose_paths( train_paths, dictionary, self.train_file, self.train_sequence_file )
+        self.decompose_train_paths( train_paths, dictionary, self.train_file, self.train_sequence_file )
         self.decompose_paths( test_paths, dictionary, self.test_file, self.test_sequence_file )
         self.take_actual_paths( test_paths, dictionary, self.test_actual_file, self.test_actual_sequence_file )
         # create sequences with labels for train and test paths
