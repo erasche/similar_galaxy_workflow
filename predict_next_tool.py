@@ -71,7 +71,7 @@ class PredictNextTool:
         model.summary()
         # create checkpoint after each epoch - save the weights to h5 file
         checkpoint = ModelCheckpoint( self.epoch_weights_path, verbose=2, mode='max' )
-        #predict_callback_train = PredictCallback( train_data, train_labels, n_epochs, reverse_dictionary, next_compatible_tools )
+        #predict_callback_train = PredictCallback( train_data, train_labels, network_config[ "n_epochs" ], reverse_dictionary, next_compatible_tools )
         predict_callback_test_actual = PredictCallback( test_actual_data, test_actual_labels, network_config[ "n_epochs" ], reverse_dictionary, next_compatible_tools )
         predict_callback_test = PredictCallback( test_data, test_labels, network_config[ "n_epochs" ], reverse_dictionary, next_compatible_tools )
         callbacks_list = [ checkpoint, predict_callback_test_actual, predict_callback_test ] #predict_callback_train
@@ -153,7 +153,7 @@ if __name__ == "__main__":
     start_time = time.time()
     network_config = {
         "experiment_runs": 1,
-        "n_epochs": 200,
+        "n_epochs": 50,
         "batch_size": 20,
         "dropout": 0.2,
         "memory_units": 128,

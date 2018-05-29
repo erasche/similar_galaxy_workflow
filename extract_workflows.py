@@ -20,7 +20,7 @@ class ExtractWorkflows:
         self.workflows_filename = self.current_working_dir + "/data/processed_workflows.csv"
         self.workflows_json = self.current_working_dir + "/data/workflows.json"
         self.workflows_steps = self.current_working_dir + "/data/workflow_steps.txt"
-        self.compatible_tools = self.current_workfing_dir + "/data/compatible_tools.json"
+        self.compatible_tools = self.current_working_dir + "/data/compatible_tools.json"
 
     @classmethod
     def read_workflow_file( self, workflow_file_path, file_id ):
