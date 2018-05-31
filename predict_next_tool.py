@@ -12,6 +12,7 @@ from sklearn.svm import LinearSVC
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier
 
+import extract_workflows
 import prepare_data
 
 
@@ -40,7 +41,7 @@ class PredictNextTool:
         print ( "Dividing data..." )
         # get training and test data and their labels
         data = prepare_data.PrepareData()
-        train_data, train_labels, test_data, test_labels, test_actual_data, test_actual_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
+        train_data, train_labels, test_data, test_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
         model = DecisionTreeClassifier()
         print( "Training decision tree classifier..." )
         model.fit( train_data, train_labels )
@@ -58,8 +59,6 @@ class PredictNextTool:
             test_sample_tool_pos = test_data[ i ][ test_sample_pos[ 0 ]: ]
             sample = np.reshape( test_data[ i ], ( 1, test_data[ i ].shape[ 0 ] ) )
             prediction = model.predict_proba( sample )
-            #prediction = np.reshape( prediction, ( dimensions, ) )
-            print prediction
             prediction_pos = np.argsort( prediction, axis=-1 )
             topk_prediction_pos = prediction_pos[ -topk: ]
             sequence_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in test_sample_tool_pos ]
@@ -76,14 +75,14 @@ class PredictNextTool:
         print( "Average topk absolute precision: %.2f" % ( np.mean( topk_abs_pred ) ) )
 
     @classmethod
-    def evaluate_mlp( self, dense_units=1024 ):
+    def evaluate_mlp( self, test_data_share, max_seq_len, dense_units=256 ):
         """
         Predict using multi-layer perceptron
         """
         print ( "Dividing data..." )
         # get training and test data and their labels
-        data = prepare_data.PrepareData()
-        train_data, train_labels, test_data, test_labels, test_actual_data, test_actual_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
+        data = prepare_data.PrepareData( test_data_share, max_seq_len )
+        train_data, train_labels, test_data, test_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
         model = MLPClassifier( hidden_layer_sizes=( dense_units, dense_units ), verbose=True, learning_rate='adaptive', batch_size=20, tol=1e-5 )
         print( "Training Multi-layer perceptron..." )
         model.fit( train_data, train_labels )
@@ -131,8 +130,14 @@ if __name__ == "__main__":
         print( "Usage: python predict_next_tool.py" )
         exit( 1 )
     start_time = time.time()
+    max_seq_length = 40
+    test_data_share = 0.25
+    '''extract_workflow = extract_workflows.ExtractWorkflows()
+    print( "Reading workflows..." )
+    extract_workflow.read_workflow_directory()
+    print( "Finished extracting workflows" )'''
     predict_tool = PredictNextTool()
-    predict_tool.evaluate_mlp()
+    predict_tool.evaluate_mlp( max_seq_length, test_data_share )
     #predict_tool.evaluate_dt()
     end_time = time.time()
     print ("Program finished in %s seconds" % str( end_time - start_time ))
