@@ -29,6 +29,8 @@ class PredictNextTool:
         self.epoch_weights_path = self.current_working_dir + "/data/weights/weights-epoch-{epoch:02d}.hdf5"
         self.mean_test_absolute_precision = self.current_working_dir + "/data/mean_test_absolute_precision.txt"
         self.mean_test_compatibility_precision = self.current_working_dir + "/data/mean_test_compatibility_precision.txt"
+        self.mean_test_actual_absolute_precision = self.current_working_dir + "/data/mean_test_actual_absolute_precision.txt"
+        self.mean_test_actual_compatibility_precision = self.current_working_dir + "/data/mean_test_actual_compatibility_precision.txt"
         self.mean_train_loss = self.current_working_dir + "/data/mean_train_loss.txt"
         self.mean_test_loss = self.current_working_dir + "/data/mean_test_loss.txt"
         self.n_epochs = epochs
@@ -150,14 +152,14 @@ if __name__ == "__main__":
     start_time = time.time()
     network_config = {
         "experiment_runs": 1,
-        "n_epochs": 10,
+        "n_epochs": 50,
         "batch_size": 50,
-        "dropout": 0.2,
+        "dropout": 0.3,
         "memory_units": 128,
         "embedding_vec_size": 128,
         "learning_rate": 0.001,
         "max_seq_len": 40,
-        "test_share": 0.25,
+        "test_share": 0.20,
         "activation_recurrent": 'elu',
         "activation_output": 'sigmoid',
         "loss_type": "binary_crossentropy"

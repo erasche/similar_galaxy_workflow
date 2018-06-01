@@ -20,7 +20,7 @@ class EvaluateTopResults:
         """ Init method. """
         self.current_working_dir = os.getcwd()
         self.network_config_json_path = self.current_working_dir + "/data/model.json"
-        self.weights_path = self.current_working_dir + "/data/weights/weights-epoch-140.hdf5"
+        self.weights_path = self.current_working_dir + "/data/weights/weights-epoch-100.hdf5"
         self.test_labels_path = self.current_working_dir + "/data/test_data_labels_dict.txt"
         self.train_labels_path = self.current_working_dir + "/data/train_data_labels_dict.txt"
         self.train_class_acc = self.current_working_dir + "/data/train_class_acc.txt"
@@ -55,7 +55,7 @@ class EvaluateTopResults:
         class_topk_accuracy = list()
         test_data_performance = list()
         min_seq_length = 0
-        top1 = 2
+        top1 = 1
         for i in range( len( data ) ):
             topk_prediction = 0.0
             num_class_topk = dict()
