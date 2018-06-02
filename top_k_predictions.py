@@ -21,14 +21,10 @@ class EvaluateTopResults:
         self.current_working_dir = os.getcwd()
         self.network_config_json_path = self.current_working_dir + "/data/model.json"
         self.weights_path = self.current_working_dir + "/data/weights/weights-epoch-100.hdf5"
-        self.test_labels_path = self.current_working_dir + "/data/test_data_labels_dict.txt"
-        self.train_labels_path = self.current_working_dir + "/data/train_data_labels_dict.txt"
-        self.train_class_acc = self.current_working_dir + "/data/train_class_acc.txt"
-        self.test_class_acc = self.current_working_dir + "/data/test_class_acc.txt"
+        self.test_labels_path = self.current_working_dir + "/data/test_data_labels_dict.json"
+        self.train_labels_path = self.current_working_dir + "/data/train_data_labels_dict.json"
         self.data_dictionary_path = self.current_working_dir + "/data/data_dictionary.txt"
         self.data_dictionary_rev_path = self.current_working_dir + "/data/data_rev_dict.txt"
-        self.test_class_topk_accuracy = self.current_working_dir + "/data/test_class_topk_accuracy.txt"
-        self.train_class_topk_accuracy = self.current_working_dir + "/data/train_class_topk_accuracy.txt"
         self.compatible_tools_filetypes = self.current_working_dir + "/data/compatible_tools.json"
         self.max_seq_length = 40
 
@@ -55,7 +51,7 @@ class EvaluateTopResults:
         class_topk_accuracy = list()
         test_data_performance = list()
         min_seq_length = 0
-        top1 = 1
+        top1 = 2
         for i in range( len( data ) ):
             topk_prediction = 0.0
             num_class_topk = dict()
@@ -100,8 +96,6 @@ class EvaluateTopResults:
                 test_seq_performance[ "predicted_tools" ] = ",".join( predicted_tools )
                 test_seq_performance[ "false_positives" ] = ",".join( false_positives )
                 test_seq_performance[ "precision" ] = topk_pred
-                #test_seq_performance[ "labels_in_training" ] = ",".join( diff_train_labels ) if len( diff_train_labels ) > 0 else ""
-                #test_seq_performance[ "is_prediction_in_train" ] = is_prediction_in_train
                 adjusted_precision = topk_pred
                 # get the last tool in the input sequence
                 seq_last_tool = sequence_tools[ -1 ]
@@ -125,9 +119,7 @@ class EvaluateTopResults:
         """
         Save the list of dictionaries as a tabular file
         """
-        #keys = [ 'input_sequence', 'actual_tools', 'predicted_tools', 'false_positives', 'compatible_tool_types', 'labels_in_training', "is_prediction_in_train", 'precision', "precision_adjusted_compatibility" ]
         keys = [ 'input_sequence', 'actual_tools', 'predicted_tools', 'false_positives', 'compatible_tool_types', 'precision', "precision_adjusted_compatibility" ]
-        #keys = [ 'input_sequence', 'actual_tools', 'predicted_tools', 'false_positives', 'compatible_tool_types', "precision_adjusted_compatibility" ]
         with open( file_name, 'wb' ) as output_file:
             dict_writer = csv.DictWriter( output_file, keys )
             dict_writer.writeheader()
