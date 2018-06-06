@@ -20,7 +20,7 @@ class EvaluateTopResults:
         """ Init method. """
         self.current_working_dir = os.getcwd() + "/data"
         self.network_config_json_path = self.current_working_dir + "/model.json"
-        self.weights_path = self.current_working_dir + "/weights/weights-epoch-200.hdf5"
+        self.weights_path = self.current_working_dir + "/weights/weights-epoch-10.hdf5"
         self.test_labels_path = self.current_working_dir + "/test_data_labels_dict.json"
         self.train_labels_path = self.current_working_dir + "/train_data_labels_dict.json"
         self.data_dictionary_path = self.current_working_dir + "/data_dictionary.txt"
@@ -136,10 +136,10 @@ class EvaluateTopResults:
         dimensions = len( data_dict ) + 1
         print ( "Get topn predictions for %d test samples" % len( test_labels ) )
         test_perf = self.get_per_class_topk_acc( test_labels, loaded_model, dimensions, reverse_data_dictionary, compatible_filetypes )
-        print ( "Get topn predictions for %d train samples" % len( train_labels ) )
-        train_perf = self.get_per_class_topk_acc( train_labels, loaded_model, dimensions, reverse_data_dictionary, compatible_filetypes )
+        '''print ( "Get topn predictions for %d train samples" % len( train_labels ) )
+        train_perf = self.get_per_class_topk_acc( train_labels, loaded_model, dimensions, reverse_data_dictionary, compatible_filetypes )'''
         self.save_as_csv( test_perf, "data/test_data_performance.csv" )
-        self.save_as_csv( train_perf, "data/train_data_performance.csv" )
+        #self.save_as_csv( train_perf, "data/train_data_performance.csv" )
 
 if __name__ == "__main__":
 

@@ -68,10 +68,10 @@ class ExtractWorkflowConnections:
         for path in workflow_paths:
             if path not in unique_paths:
                 unique_paths.append( path )
-        print( "Finding compatible next tools..." )
+        '''print( "Finding compatible next tools..." )
         next_tools = self.set_compatible_next_tools( unique_paths )
         with open( COMPATIBLE_NEXT_TOOLS , "w" ) as compatible_tools_file:
-            compatible_tools_file.write( json.dumps( next_tools ) )
+            compatible_tools_file.write( json.dumps( next_tools ) )'''
         print( "Writing workflows to a text file..." )
         workflow_paths = ""
         for path in unique_paths:
