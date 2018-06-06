@@ -42,6 +42,18 @@ class PredictNextTool:
         """
         with open( self.network_config_json_path, "w" ) as json_file:
             json_file.write( model )
+            
+    @classmethod
+    def see_weights( self, model ):
+        """
+        Look at weights and gradients
+        """
+        weights = list()
+        for layer in model.layers:
+            layer_weight = layer.get_weights()
+            weights.append( layer_weight ) # list of numpy arrays
+            if len( layer_weight ) > 0:
+                print layer_weight
 
     @classmethod
     def evaluate_recurrent_network( self, run, network_config ):
@@ -70,6 +82,7 @@ class PredictNextTool:
         # save the network as json
         self.save_network( model.to_json() )
         model.summary()
+        #self.see_weights( model )
         # create checkpoint after each epoch - save the weights to h5 file
         checkpoint = ModelCheckpoint( self.epoch_weights_path, verbose=2, mode='max' )
         #predict_callback_train = PredictCallback( train_data, train_labels, n_epochs, reverse_dictionary, next_compatible_tools )
@@ -153,7 +166,7 @@ if __name__ == "__main__":
     start_time = time.time()
     network_config = {
         "experiment_runs": 1,
-        "n_epochs": 30,
+        "n_epochs": 1,
         "batch_size": 128,
         "dropout": 0.3,
         "memory_units": 128,
