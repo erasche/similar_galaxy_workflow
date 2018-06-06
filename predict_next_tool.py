@@ -53,6 +53,7 @@ class PredictNextTool:
         # get training and test data and their labels
         data = prepare_data.PrepareData( network_config[ "max_seq_len" ], network_config[ "test_share" ] )
         train_data, train_labels, test_data, test_labels, dictionary, reverse_dictionary, next_compatible_tools = data.get_data_labels_mat()
+        batch_size = network_config[ "batch_size" ]
         # Increase the dimension by 1 to mask the 0th position
         dimensions = len( dictionary ) + 1
         optimizer = RMSprop( lr=network_config[ "learning_rate" ] )
@@ -75,7 +76,7 @@ class PredictNextTool:
         predict_callback_test = PredictCallback( test_data, test_labels, network_config[ "n_epochs" ], reverse_dictionary, next_compatible_tools )
         callbacks_list = [ checkpoint, predict_callback_test ] #predict_callback_train
         print ( "Start training..." )
-        model_fit_callbacks = model.fit( train_data, train_labels, validation_split=0.2, batch_size=network_config[ "batch_size" ], epochs=self.n_epochs, callbacks=callbacks_list, shuffle=True )
+        model_fit_callbacks = model.fit( train_data, train_labels, validation_split=0.2, batch_size=batch_size, epochs=self.n_epochs, callbacks=callbacks_list, shuffle=True )
         loss_values = model_fit_callbacks.history[ "loss" ]
         validation_loss = model_fit_callbacks.history[ "val_loss" ]
         return {
@@ -124,7 +125,7 @@ class PredictCallback( Callback ):
             top_predicted_next_tool_names = [ reverse_data_dictionary[ int( tool_pos ) + 1 ] for tool_pos in topk_prediction_pos ]
             # find false positives
             false_positives = [ tool_name for tool_name in top_predicted_next_tool_names if tool_name not in actual_next_tool_names ]
-            absolute_precision = 1 - ( len( false_positives ) / float( len( actual_next_tool_names ) ) )
+            absolute_precision = 1 - ( len( false_positives ) / float( topk ) )
             adjusted_precision = absolute_precision
             # adjust the precision for compatible tools
             seq_last_tool = sequence_tool_names[ -1 ]
@@ -134,7 +135,7 @@ class PredictCallback( Callback ):
                 if len( next_tools ) > 0:
                     for false_pos in false_positives:
                         if false_pos in next_tools:
-                            adjusted_precision += 1 / float( len( actual_next_tool_names ) )
+                            adjusted_precision += 1 / float( topk )
             topk_abs_pred[ i ] = absolute_precision
             topk_compatible_pred[ i ] = adjusted_precision
         self.abs_precision[ epoch ] = np.mean( topk_abs_pred )
@@ -152,7 +153,7 @@ if __name__ == "__main__":
     start_time = time.time()
     network_config = {
         "experiment_runs": 1,
-        "n_epochs": 100,
+        "n_epochs": 30,
         "batch_size": 128,
         "dropout": 0.3,
         "memory_units": 128,
@@ -164,8 +165,8 @@ if __name__ == "__main__":
         "activation_output": 'sigmoid',
         "loss_type": "binary_crossentropy"
     }
-    connections = extract_workflow_connections.ExtractWorkflowConnections()
-    connections.read_tabular_file()
+    '''connections = extract_workflow_connections.ExtractWorkflowConnections()
+    connections.read_tabular_file()'''
     n_epochs = network_config[ "n_epochs" ]
     experiment_runs = network_config[ "experiment_runs" ]
     predict_tool = PredictNextTool( n_epochs )
