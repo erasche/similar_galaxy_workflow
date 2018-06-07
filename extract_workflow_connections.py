@@ -63,23 +63,26 @@ class ExtractWorkflowConnections:
                     if len( paths ) > 0:
                         flow_paths.extend( paths )
             workflow_paths.extend( flow_paths )
+        random.shuffle( workflow_paths )
         unique_paths = list()
         print( "Workflows processed" )
-        random.shuffle( workflow_paths )
-        workflow_paths = workflow_paths[ :20000 ]
+        print( "Removing duplicate paths..." )
+        print( "All paths: %d" % len( workflow_paths ) )
         for path in workflow_paths:
             if path not in unique_paths:
                 unique_paths.append( path )
+        print( "Unique paths: %d" % len( unique_paths ) )
         print( "Finding compatible next tools..." )
         next_tools = self.set_compatible_next_tools( unique_paths )
         with open( COMPATIBLE_NEXT_TOOLS , "w" ) as compatible_tools_file:
             compatible_tools_file.write( json.dumps( next_tools ) )
         print( "Writing workflows to a text file..." )
-        workflow_paths_comma_sep = ""
+        random.shuffle( unique_paths )
+        workflow_paths = ""
         for path in unique_paths:
-            workflow_paths_comma_sep += ",".join( path ) + "\n"
+            workflow_paths += ",".join( path ) + "\n"
         with open( WORKFLOW_PATHS_FILE, "w" ) as workflows_file:
-            workflows_file.write( workflow_paths_comma_sep )
+            workflows_file.write( workflow_paths )
             
     @classmethod
     def set_compatible_next_tools( self, workflow_paths ):
