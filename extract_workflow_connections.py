@@ -64,7 +64,6 @@ class ExtractWorkflowConnections:
                         flow_paths.extend( paths )
             workflow_paths.extend( flow_paths )
         random.shuffle( workflow_paths )
-        workflow_paths = workflow_paths[ :1000 ]
         unique_paths = list()
         print( "Workflows processed" )
         print( "Removing duplicate paths..." )

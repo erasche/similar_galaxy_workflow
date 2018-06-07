@@ -207,6 +207,7 @@ class PrepareData:
         dictionary, reverse_dictionary = self.create_data_dictionary( processed_data )
         num_classes = len( dictionary )
         random.shuffle( raw_paths )
+        print( "Raw paths: %d" % len( raw_paths ) )
         split_number = int( self.test_share * len( raw_paths ) )
         test_paths = raw_paths[ :split_number ]
         train_paths = raw_paths[ split_number: ]
