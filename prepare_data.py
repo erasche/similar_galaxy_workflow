@@ -66,6 +66,35 @@ class PrepareData:
         return dictionary, reverse_dictionary
 
     @classmethod
+    def decompose_test_paths( self, paths, dictionary, file_pos, file_names ):
+        """
+        Decompose the paths to variable length sub-paths keeping the first tool fixed
+        """
+        sub_paths_pos = list()
+        sub_paths_names = list()
+        for index, item in enumerate( paths ):
+            tools = item.split( "," )
+            len_tools = len( tools )
+            if len_tools <= self.max_tool_sequence_len:
+                for window in range( 1, len_tools ):
+                    sequence = tools[ 0: window + 1 ]
+                    tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in sequence ]
+                    if len( tools_pos ) > 1:
+                        tools_pos = ",".join( tools_pos )
+                        data_seq = ",".join( sequence )
+                        if tools_pos not in sub_paths_pos:
+                            sub_paths_pos.append( tools_pos )
+                        if data_seq not in sub_paths_names:
+                            sub_paths_names.append( data_seq )
+        with open( file_pos, "w" ) as sub_paths_file_pos:
+            for item in sub_paths_pos:
+                sub_paths_file_pos.write( "%s\n" % item )
+        with open( file_names, "w" ) as sub_paths_file_names:
+            for item in sub_paths_names:
+                sub_paths_file_names.write( "%s\n" % item )
+        return sub_paths_pos
+
+    @classmethod
     def take_actual_paths( self, paths, dictionary, file_pos, file_names ):
         """
         Take paths as such. No decomposition.
@@ -168,10 +197,11 @@ class PrepareData:
         """
         Split into test and train data randomly for each run
         """
+        internal_test_share = 0.33
         test_dict = dict()
         all_test_paths = test_dict_complete.keys()
         random.shuffle( list( all_test_paths ) )
-        split_number = int( self.test_share * len( all_test_paths ) )
+        split_number = int( internal_test_share * len( all_test_paths ) )
         for index, path in enumerate( list( all_test_paths ) ):
             if index < split_number:
                 test_dict[ path ] = test_dict_complete[ path ]
@@ -190,18 +220,21 @@ class PrepareData:
         split_number = int( self.test_share * len( raw_paths ) )
         test_paths = raw_paths[ :split_number ]
         train_paths = raw_paths[ split_number: ]
-        test_paths = self.take_actual_paths( test_paths, dictionary, self.test_file, self.test_file_sequence )
+        test_paths = self.decompose_test_paths( test_paths, dictionary, self.test_file, self.test_file_sequence )
         train_paths = self.take_actual_paths( train_paths, dictionary, self.train_file, self.train_file_sequence )
         print( "Train paths: %d" % len( train_paths ) )
         print( "Test paths: %d" % len( test_paths ) )
         print( "Creating dictionaries..." )
         train_paths_dict = self.prepare_paths_labels_dictionary( self.train_file )
+        print( "Train data: %d" % len( train_paths_dict ) )
         test_paths_dict = self.prepare_paths_labels_dictionary( self.test_file )
+        print( "Test data before removing duplicates: %d" % len( test_paths_dict ) )
         test_paths_dict = self.remove_duplicate_paths( train_paths_dict, test_paths_dict )
+        print( "Test data after removing duplicates: %d" % len( test_paths_dict ) )
+        test_paths_dict = self.split_test_data( test_paths_dict )
+        print( "Test data after size reduction: %d" % len( test_paths_dict ) )
         self.write_to_file( self.test_data_labels_dict, self.test_data_labels_names_dict, test_paths_dict, reverse_dictionary )
         self.write_to_file( self.train_data_labels_dict, self.train_data_labels_names_dict, train_paths_dict, reverse_dictionary )
-        print( "Train data: %d" % len( train_paths_dict ) )
-        print( "Test data: %d" % len( test_paths_dict ) )
         print( "Padding paths with 0s..." )
         train_data, train_labels = self.pad_paths( train_paths_dict, num_classes )
         test_data, test_labels = self.pad_paths( test_paths_dict, num_classes )
