@@ -15,7 +15,7 @@ class PrepareData:
     def __init__( self, max_seq_length, test_data_share ):
         """ Init method. """
         self.current_working_dir = os.getcwd()
-        self.raw_file = self.current_working_dir + "/data/workflow_steps.txt"
+        self.raw_file = self.current_working_dir + "/data/workflow_connections_paths.txt"
         self.data_dictionary = self.current_working_dir + "/data/data_dictionary.txt"
         self.data_rev_dict = self.current_working_dir + "/data/data_rev_dict.txt"
         self.train_file = self.current_working_dir + "/data/train_file.txt"
