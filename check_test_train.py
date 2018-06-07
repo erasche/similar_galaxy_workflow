@@ -12,6 +12,7 @@ def verify_data( test_path, train_path ):
     print len(train_data)
     for path in test_data:
         if path in train_data:
+            print path
             counter += 1
     print( "Percentage overlap in train and test data: %.2f" % ( counter ) )
 

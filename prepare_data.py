@@ -123,6 +123,35 @@ class PrepareData:
             for item in sub_paths_names:
                 sub_paths_file_names.write( "%s\n" % item )
         return sub_paths_pos
+        
+    @classmethod
+    def decompose_test_paths( self, paths, dictionary, file_pos, file_names ):
+        """
+        Decompose the paths to variable length sub-paths keeping the first tool fixed
+        """
+        sub_paths_pos = list()
+        sub_paths_names = list()
+        for index, item in enumerate( paths ):
+            tools = item.split( "," )
+            len_tools = len( tools )
+            if len_tools <= self.max_tool_sequence_len:
+                for window in range( 1, len_tools ):
+                    sequence = tools[ 0: window + 1 ]
+                    tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in sequence ]
+                    if len( tools_pos ) > 1:
+                        tools_pos = ",".join( tools_pos )
+                        data_seq = ",".join( sequence )
+                        if tools_pos not in sub_paths_pos:
+                            sub_paths_pos.append( tools_pos )
+                        if data_seq not in sub_paths_names:
+                            sub_paths_names.append( data_seq )
+        with open( file_pos, "w" ) as sub_paths_file_pos:
+            for item in sub_paths_pos:
+                sub_paths_file_pos.write( "%s\n" % item )
+        with open( file_names, "w" ) as sub_paths_file_names:
+            for item in sub_paths_names:
+                sub_paths_file_names.write( "%s\n" % item )
+        return sub_paths_pos
 
     @classmethod
     def prepare_paths_labels_dictionary( self, read_file ):
