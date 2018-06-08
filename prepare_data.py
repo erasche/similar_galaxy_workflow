@@ -27,6 +27,7 @@ class PrepareData:
         self.train_data_labels_names_dict = self.current_working_dir + "/data/train_data_labels_names_dict.json"
         self.test_data_labels_names_dict = self.current_working_dir + "/data/test_data_labels_names_dict.json"
         self.compatible_tools_filetypes = self.current_working_dir + "/data/compatible_tools.json"
+        self.paths_frequency = self.current_working_dir + "/data/workflow_paths_freq.txt"
         self.max_tool_sequence_len = max_seq_length
         self.test_share = test_data_share
 
@@ -72,13 +73,13 @@ class PrepareData:
         """
         sub_paths_pos = list()
         sub_paths_names = list()
-        window_size = 10
+        min_window_size = 5
         for index, item in enumerate( paths ):
             tools = item.split( "," )
             len_tools = len( tools )
             if len_tools <= self.max_tool_sequence_len:
-                for start_pos in range( 0, len_tools ):
-                    sequence = tools[ start_pos: window_size + start_pos + 1 ]
+                for window in range( min_window_size, len_tools ):
+                    sequence = tools[ 0: window + 1 ]
                     tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in sequence ]
                     if len( tools_pos ) > 1:
                         tools_pos = ",".join( tools_pos )
@@ -174,6 +175,75 @@ class PrepareData:
         return paths_labels
 
     @classmethod
+    def randomize_data( self, train_data, train_labels ):
+        """
+        Randomize the train data after its inflation
+        """
+        size_data = train_data.shape
+        size_labels = train_labels.shape
+        rand_train_data = np.zeros( [ size_data[ 0 ], size_data[ 1 ] ] )
+        rand_train_labels = np.zeros( [ size_labels[ 0 ], size_labels[ 1 ] ] )
+        indices = np.arange( size_data[ 0 ] )
+        random.shuffle( indices )
+        for index, random_index in enumerate( indices ):
+            rand_train_data[ index ] = train_data[ random_index ]
+            rand_train_labels[ index ] = train_labels[ random_index ]
+        return rand_train_data, rand_train_labels
+
+    @classmethod
+    def reconstruct_original_distribution( self, reverse_dictionary, train_data, train_labels ):
+        """
+        Reconstruct the original distribution in training data
+        """
+        paths_frequency = dict()
+        train_data_size = train_data.shape[ 0 ]
+        increase_factor = 0
+        with open( self.paths_frequency, "r" ) as frequency:
+            paths_frequency = json.loads( frequency.read() )
+        for i in range( train_data_size ):
+            label_tool_pos = np.where( train_labels[ i ] > 0 )[ 0 ]
+            train_sample = np.reshape( train_data[ i ], ( 1, train_data.shape[ 1 ] ) )
+            train_sample_pos = np.where( train_data[ i ] > 0 )[ 0 ]
+            train_sample_tool_pos = train_data[ i ][ train_sample_pos[ 0 ]: ]
+            sample_tool_names = ",".join( [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in train_sample_tool_pos ] )
+            label_tool_names = [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in label_tool_pos ]
+            for label in label_tool_names:
+                reconstructed_path = sample_tool_names + "," + label
+                if reconstructed_path in paths_frequency:
+                    # subtract by one
+                    adjusted_freq = paths_frequency[ reconstructed_path ] - 1
+                    repeated_train_sample = np.tile( train_data[ i ], ( adjusted_freq, 1 ) )
+                    repeated_train_sample_label = np.tile( train_labels[ i ], ( adjusted_freq, 1 ) )
+                    train_data = np.vstack( ( train_data, repeated_train_sample ) )
+                    train_labels = np.vstack( ( train_labels, repeated_train_sample_label ) )
+                    increase_factor += adjusted_freq
+        return train_data, train_labels
+
+    @classmethod
+    def verify_overlap( self, train_data, test_data, reverse_dictionary ):
+        """
+        Verify the overlapping of samples in train and test data
+        """
+        train_data_size = train_data.shape[ 0 ]
+        test_data_size = test_data.shape[ 0 ]
+        train_samples = list()
+        test_samples = list()
+        for i in range( train_data_size ):
+            train_sample = np.reshape( train_data[ i ], ( 1, train_data.shape[ 1 ] ) )
+            train_sample_pos = np.where( train_data[ i ] > 0 )[ 0 ]
+            train_sample_tool_pos = train_data[ i ][ train_sample_pos[ 0 ]: ]
+            sample_tool_names = ",".join( [ str(tool_pos) for tool_pos in train_sample_tool_pos ] )
+            train_samples.append( sample_tool_names )
+        for i in range( test_data_size ):
+            test_sample = np.reshape( test_data[ i ], ( 1, test_data.shape[ 1 ] ) )
+            test_sample_pos = np.where( test_data[ i ] > 0 )[ 0 ]
+            test_sample_tool_pos = test_data[ i ][ test_sample_pos[ 0 ]: ]
+            sample_tool_names = ",".join( [ str(tool_pos) for tool_pos in test_sample_tool_pos ] )
+            test_samples.append( sample_tool_names )
+        intersection = list( set( train_samples ).intersection( set( test_samples ) ) )
+        print( "Overlap in train and test: %d" % len( intersection ) )
+
+    @classmethod
     def pad_paths( self, paths_dictionary, num_classes ):
         """
         Add padding to the tools sequences and create multi-hot encoded labels
@@ -237,9 +307,11 @@ class PrepareData:
         num_classes = len( dictionary )
         random.shuffle( raw_paths )
         print( "Raw paths: %d" % len( raw_paths ) )
+
         split_number = int( self.test_share * len( raw_paths ) )
         test_paths = raw_paths[ :split_number ]
         train_paths = raw_paths[ split_number: ]
+
         train_paths = self.decompose_train_paths( train_paths, dictionary, self.train_file, self.train_file_sequence )
         test_paths = self.decompose_test_paths( test_paths, dictionary, self.test_file, self.test_file_sequence )
         train_paths_dict = self.prepare_paths_labels_dictionary( self.train_file )
@@ -247,10 +319,21 @@ class PrepareData:
         test_paths_dict = self.remove_duplicate_paths( train_paths_dict, test_paths_dict )
         self.write_to_file( self.test_data_labels_dict, self.test_data_labels_names_dict, test_paths_dict, reverse_dictionary )
         self.write_to_file( self.train_data_labels_dict, self.train_data_labels_names_dict, train_paths_dict, reverse_dictionary )
+
         print( "Train data: %d" % len( train_paths_dict ) )
         print( "Test data: %d" % len( test_paths_dict ) )
         print( "Padding paths with 0s..." )
         train_data, train_labels = self.pad_paths( train_paths_dict, num_classes )
         test_data, test_labels = self.pad_paths( test_paths_dict, num_classes )
+        print( "Verifying overlap in train and test data..." )
+        self.verify_overlap( train_data, test_data, reverse_dictionary )
+
+        print( "Restoring the original data distribution in training data..." )
+        train_data, train_labels = self.reconstruct_original_distribution( reverse_dictionary, train_data, train_labels )
+
+        print( "Randomizing the train data..." )
+        train_data, train_labels = self.randomize_data( train_data, train_labels )
+
+        # get the list of compatible tools
         next_compatible_tools = self.get_filetype_compatibility( self.compatible_tools_filetypes, dictionary )
         return train_data, train_labels, test_data, test_labels, dictionary, reverse_dictionary, next_compatible_tools
