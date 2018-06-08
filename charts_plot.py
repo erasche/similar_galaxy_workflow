@@ -16,10 +16,10 @@ def plot_tools_compatible_tools( file_path ):
         next_tools_list = json.loads( file_next_tools.read() )
     for tool in next_tools_list:
         next_tools.append( len( next_tools_list[ tool ].split( "," ) ) )
-    plt.bar( np.arange( len( next_tools ) ), next_tools )
+    plt.bar( np.arange( len( next_tools ) ), next_tools, color='r' )
     plt.ylabel( 'Number of next compatible tools' )
-    plt.xlabel( 'Tools' )
-    plt.title( 'Distribution of next compatible tools for all the tools' )
+    plt.xlabel( 'Tools (excluding those which come only at the end)' )
+    plt.title( 'Distribution of the number of next compatible tools for all tools' )
     plt.grid( True )
     plt.show()
 
@@ -40,11 +40,11 @@ def plot_data_distribution( file_path ):
     print len(tools_freq)
     plt.bar( count, tools_freq, color='r' )
     plt.xlabel( 'Workflow paths' )
-    plt.ylabel( 'Number of tools (size)' )
-    plt.title( 'Distribution of the size of workflow paths' )
+    plt.ylabel( 'Number of tools in a workflow path' )
+    plt.title( 'Distribution of the number of tools in workflow paths' )
     plt.grid( True )
     plt.show()
 
 
-##plot_tools_compatible_tools( "data/compatible_tools.json" )
+plot_tools_compatible_tools( "data/compatible_tools.json" )
 plot_data_distribution( "data/workflow_connections_paths.txt" )
