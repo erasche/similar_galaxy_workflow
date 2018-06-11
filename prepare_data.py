@@ -105,7 +105,6 @@ class PrepareData:
         Create a dictionary of sequences with their labels for training and test paths
         """
         paths_labels = dict()
-        paths_labels_names = dict()
         random.shuffle( paths )
         for item in paths:
             if item and item not in "":
@@ -285,7 +284,7 @@ class PrepareData:
         processed_data, raw_paths = self.process_processed_data( self.raw_file )
         dictionary, reverse_dictionary = self.create_data_dictionary( processed_data )
         num_classes = len( dictionary )
-        raw_paths = raw_paths[ :10000 ]
+
         print( "Raw paths: %d" % len( raw_paths ) )
         random.shuffle( raw_paths )
 

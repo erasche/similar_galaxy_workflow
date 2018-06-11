@@ -1,6 +1,7 @@
 """
 Predict nodes in graphichal data (Galaxy workflows) using Machine Learning
 """
+
 import sys
 import numpy as np
 import time
@@ -55,7 +56,7 @@ class PredictNextTool:
         return hf.get( "data" ), hf.get( "data_labels" )
 
     @classmethod
-    def evaluate_mlp( self, network_config, train_data, train_labels, test_data, test_labels, dictionary, reverse_dictionary, next_compatible_tools ):
+    def evaluate_mlp( self, test_data_share, max_seq_len, dense_units=256 ):
         """
         Predict using multi-layer perceptron
         """
@@ -129,8 +130,8 @@ if __name__ == "__main__":
         "test_share": 0.2
     }
     start_time = time.time()
-    '''connections = extract_workflow_connections.ExtractWorkflowConnections()
-    connections.read_tabular_file()'''    
+    connections = extract_workflow_connections.ExtractWorkflowConnections()
+    connections.read_tabular_file()   
     for run in range( network_config[ "experiment_runs" ] ):
         print ( "Dividing data..." )
         data = prepare_data.PrepareData( network_config[ "max_seq_len" ], network_config[ "test_share" ] )
@@ -142,6 +143,5 @@ if __name__ == "__main__":
         reverse_data_dictionary = predict_tool.read_file( predict_tool.data_rev_dict )
         next_compatible_tools = predict_tool.read_file( predict_tool.compatible_tools_filetypes )
         predict_tool.evaluate_mlp( network_config, train_data, train_labels, test_data, test_labels, data_dict, reverse_data_dictionary, next_compatible_tools )
-    #predict_tool.evaluate_dt()
     end_time = time.time()
     print ("Program finished in %s seconds" % str( end_time - start_time ))
