@@ -20,13 +20,13 @@ class EvaluateTopResults:
         """ Init method. """
         self.current_working_dir = os.getcwd() + "/data"
         self.network_config_json_path = self.current_working_dir + "/model.json"
-        self.weights_path = self.current_working_dir + "/weights/weights-epoch-10.hdf5"
+        self.weights_path = self.current_working_dir + "/weights/weights-epoch-100.hdf5"
         self.test_labels_path = self.current_working_dir + "/test_data_labels_dict.json"
         self.train_labels_path = self.current_working_dir + "/train_data_labels_dict.json"
         self.data_dictionary_path = self.current_working_dir + "/data_dictionary.txt"
         self.data_dictionary_rev_path = self.current_working_dir + "/data_rev_dict.txt"
         self.compatible_tools_filetypes = self.current_working_dir + "/compatible_tools.json"
-        self.max_seq_length = 40
+        self.max_seq_length = 30
 
     @classmethod
     def load_saved_model( self, network_config_path, weights_path ):
@@ -51,7 +51,7 @@ class EvaluateTopResults:
         class_topk_accuracy = list()
         test_data_performance = list()
         min_seq_length = 0
-        top1 = 1
+        top1 = 2
         for i in range( len( data ) ):
             topk_prediction = 0.0
             num_class_topk = dict()
@@ -136,10 +136,10 @@ class EvaluateTopResults:
         dimensions = len( data_dict ) + 1
         print ( "Get topn predictions for %d test samples" % len( test_labels ) )
         test_perf = self.get_per_class_topk_acc( test_labels, loaded_model, dimensions, reverse_data_dictionary, compatible_filetypes )
-        '''print ( "Get topn predictions for %d train samples" % len( train_labels ) )
-        train_perf = self.get_per_class_topk_acc( train_labels, loaded_model, dimensions, reverse_data_dictionary, compatible_filetypes )'''
+        print ( "Get topn predictions for %d train samples" % len( train_labels ) )
+        train_perf = self.get_per_class_topk_acc( train_labels, loaded_model, dimensions, reverse_data_dictionary, compatible_filetypes )
         self.save_as_csv( test_perf, "data/test_data_performance.csv" )
-        #self.save_as_csv( train_perf, "data/train_data_performance.csv" )
+        self.save_as_csv( train_perf, "data/train_data_performance.csv" )
 
 if __name__ == "__main__":
 

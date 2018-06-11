@@ -1,6 +1,7 @@
 """
 Extract steps, tools and input and output types of workflows.
 """
+
 import sys
 import os
 import json
@@ -70,6 +71,7 @@ class ExtractWorkflowConnections:
             workflow_paths.extend( flow_paths )
         print( "Workflows processed" )
         print( "All paths: %d" % len( workflow_paths ) )
+        print( "Counting frequency of paths..." )
         for path in workflow_paths:
             path_names = ",".join( path )
             if path_names not in workflow_paths_freq:
@@ -78,17 +80,13 @@ class ExtractWorkflowConnections:
         with open( WORKFLOW_PATHS_FREQ , "w" ) as workflow_paths_freq_file:
             workflow_paths_freq_file.write( json.dumps( workflow_paths_freq ) )
         # collect duplicate paths
-        
         for path in workflow_paths:
             workflow_paths_dup += ",".join( path ) + "\n"
         with open( WORKFLOW_PATHS_FILE_DUP, "w" ) as workflows_file:
             workflows_file.write( workflow_paths_dup )
         # collect unique paths
         print( "Removing duplicate paths..." )
-        
-        for path in workflow_paths:
-            if path not in unique_paths:
-                unique_paths.append( path )
+        unique_paths = list( set( workflow_paths_dup.split( "\n" ) ) )
         print( "Unique paths: %d" % len( unique_paths ) )
         print( "Finding compatible next tools..." )
         next_tools = self.set_compatible_next_tools( unique_paths )
@@ -96,9 +94,8 @@ class ExtractWorkflowConnections:
             compatible_tools_file.write( json.dumps( next_tools ) )
         print( "Writing workflows to a text file..." )
         random.shuffle( unique_paths )
-        
         for path in unique_paths:
-            workflow_paths_unique += ",".join( path ) + "\n"
+            workflow_paths_unique += path + "\n"
         with open( WORKFLOW_PATHS_FILE, "w" ) as workflows_file:
             workflows_file.write( workflow_paths_unique )
             
@@ -109,8 +106,9 @@ class ExtractWorkflowConnections:
         """
         next_tools = dict()
         for path in workflow_paths:
-            for window in range( 0, len( path ) - 1 ):
-                current_next_tools = path[ window: window + 2 ]
+            path_split = path.split( "," )
+            for window in range( 0, len( path_split ) - 1 ):
+                current_next_tools = path_split[ window: window + 2 ]
                 current_tool = current_next_tools[ 0 ]
                 next_tool = current_next_tools[ 1 ]
                 if current_tool in next_tools:
@@ -174,4 +172,6 @@ class ExtractWorkflowConnections:
         tool_id_split = tool_id.split( "." )
         tool_id = tool_id_split[ 0 ] if len( tool_id ) > 1 else tool_id
         tool_id = tool_id.replace( " ", "_" )
+        tool_id = tool_id.replace( ":", "" )
         return tool_id.lower()
+
