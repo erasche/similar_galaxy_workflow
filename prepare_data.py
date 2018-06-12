@@ -19,13 +19,15 @@ class PrepareData:
         self.raw_file = self.current_working_dir + "/data/workflow_connections_paths.txt"
         self.data_dictionary = self.current_working_dir + "/data/data_dictionary.txt"
         self.data_rev_dict = self.current_working_dir + "/data/data_rev_dict.txt"
-        self.train_file = self.current_working_dir + "/data/train_file.txt"
-        self.train_file_sequence = self.current_working_dir + "/data/train_file_sequence.txt"
-        self.test_file = self.current_working_dir + "/data/test_file.txt"
-        self.test_file_sequence = self.current_working_dir + "/data/test_file_sequence.txt"
+        self.complete_file = self.current_working_dir + "/data/complete_file.txt"
+        self.complete_file_sequence = self.current_working_dir + "/data/complete_file_sequence.txt"
+        self.complete_paths_pos = self.current_working_dir + "/data/complete_paths_pos.txt"
+        self.complete_paths_names = self.current_working_dir + "/data/complete_paths_names.txt"
+        self.complete_paths_pos_dict = self.current_working_dir + "/data/complete_paths_pos_dict.json"
+        self.complete_paths_names_dict = self.current_working_dir + "/data/complete_paths_names_dict.json"
         self.train_data_labels_dict = self.current_working_dir + "/data/train_data_labels_dict.json"
-        self.test_data_labels_dict = self.current_working_dir + "/data/test_data_labels_dict.json"
         self.train_data_labels_names_dict = self.current_working_dir + "/data/train_data_labels_names_dict.json"
+        self.test_data_labels_dict = self.current_working_dir + "/data/test_data_labels_dict.json"
         self.test_data_labels_names_dict = self.current_working_dir + "/data/test_data_labels_names_dict.json"
         self.compatible_tools_filetypes = self.current_working_dir + "/data/compatible_tools.json"
         self.paths_frequency = self.current_working_dir + "/data/workflow_paths_freq.txt"
@@ -70,22 +72,22 @@ class PrepareData:
         return dictionary, reverse_dictionary
 
     @classmethod
-    def take_actual_paths( self, paths, dictionary, file_pos, file_names ):
+    def decompose_paths( self, paths, dictionary, file_pos, file_names ):
         """
-        Take paths as such. No decomposition.
+        Decompose the paths to variable length sub-paths keeping the first tool fixed
         """
         sub_paths_pos = list()
         sub_paths_names = list()
         for index, item in enumerate( paths ):
-            sequence = item.split( "," )
-            if len( sequence ) <= self.max_tool_sequence_len:
-                tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in sequence ]
+            tools = item.split( "," )
+            len_tools = len( tools )
+            if len_tools <= self.max_tool_sequence_len:
+                tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in tools ]
                 if len( tools_pos ) > 1:
-                    tools_pos = ",".join( tools_pos )
-                    data_seq = ",".join( sequence )
-                    sub_paths_pos.append( tools_pos )
-                    sub_paths_names.append( data_seq )
-                print( "Path processed: %d" % index )
+                    sub_paths_pos.append( ",".join( tools_pos ) )
+                    sub_paths_names.append(  ",".join( tools ) )
+        sub_paths_pos = list( set( sub_paths_pos ) )
+        sub_paths_names = list( set( sub_paths_names ) )
         with open( file_pos, "w" ) as sub_paths_file_pos:
             for item in sub_paths_pos:
                 sub_paths_file_pos.write( "%s\n" % item )
@@ -95,13 +97,13 @@ class PrepareData:
         return sub_paths_pos
 
     @classmethod
-    def prepare_paths_labels_dictionary( self, read_file ):
+    def prepare_paths_labels_dictionary( self, reverse_dictionary, paths, paths_file_pos, paths_file_names, destination_file, destination_file_names ):
         """
         Create a dictionary of sequences with their labels for training and test paths
         """
-        paths = open( read_file, "r" )
-        paths = paths.read().split( "\n" )
         paths_labels = dict()
+        paths_labels_names = dict()
+        random.shuffle( paths )
         for item in paths:
             if item and item not in "":
                 tools = item.split( "," )
@@ -111,7 +113,21 @@ class PrepareData:
                 if train_tools in paths_labels:
                     paths_labels[ train_tools ] += "," + label
                 else:
-                    paths_labels[ train_tools ] = label
+                    paths_labels[ train_tools ] = label            
+        with open( paths_file_pos, "w" ) as write_paths_file_pos:
+            for item in paths:
+                write_paths_file_pos.write( "%s\n" % item )
+        with open( paths_file_names, "w" ) as write_paths_file_names:
+            for item in paths:
+                write_paths_file_names.write( "%s\n" % ",".join( [ reverse_dictionary[ int( pos ) ] for pos in item.split( "," ) ] ) )
+        with open( destination_file, 'w' ) as multilabel_file:
+            multilabel_file.write( json.dumps( paths_labels ) )
+        for item in paths_labels:
+            path_names = ",".join( [ reverse_dictionary[ int( pos ) ] for pos in item.split( "," ) ] )
+            path_label_names = ",".join( [ reverse_dictionary[ int( pos ) ] for pos in paths_labels[ item ].split( "," ) ] )
+            paths_labels_names[ path_names ] = path_label_names
+        with open( destination_file_names, "w" ) as multilabel_file_names:
+            multilabel_file_names.write( json.dumps( paths_labels_names ) )
         return paths_labels
 
     @classmethod
@@ -239,29 +255,21 @@ class PrepareData:
             multilabel_file.write( json.dumps( path_seq_names ) )
         
     @classmethod
-    def remove_duplicate_paths( self, train_dict, test_dict ):
-        """
-        Remove duplicate paths from test paths
-        """
-        clean_train_dict = dict()
-        for path in train_dict:
-            if path not in test_dict:
-                clean_train_dict[ path ] = train_dict[ path ]
-        return clean_train_dict
-        
-    @classmethod
-    def split_test_data( self, test_dict_complete ):
+    def split_test_train_data( self, multilabels_paths ):
         """
         Split into test and train data randomly for each run
         """
+        train_dict = dict()
         test_dict = dict()
-        all_test_paths = test_dict_complete.keys()
-        random.shuffle( list( all_test_paths ) )
-        split_number = int( self.test_share * len( all_test_paths ) )
-        for index, path in enumerate( list( all_test_paths ) ):
+        all_paths = multilabels_paths.keys()
+        random.shuffle( list( all_paths ) )
+        split_number = int( self.test_share * len( all_paths ) )
+        for index, path in enumerate( list( all_paths ) ):
             if index < split_number:
-                test_dict[ path ] = test_dict_complete[ path ]
-        return test_dict
+                test_dict[ path ] = multilabels_paths[ path ]
+            else:
+                train_dict[ path ] = multilabels_paths[ path ]
+        return train_dict, test_dict
 
     @classmethod
     def save_as_h5py( self, data, label, file_path ):
@@ -284,25 +292,21 @@ class PrepareData:
         print( "Raw paths: %d" % len( raw_paths ) )
         random.shuffle( raw_paths )
 
-        split_number = int( self.test_share * len( raw_paths ) )
-        test_paths = raw_paths[ :split_number ]
-        train_paths = raw_paths[ split_number: ]
-        test_paths = self.take_actual_paths( test_paths, dictionary, self.test_file, self.test_file_sequence )
-        train_paths = self.take_actual_paths( train_paths, dictionary, self.train_file, self.train_file_sequence )
-
-        print( "Train paths: %d" % len( train_paths ) )
-        print( "Test paths: %d" % len( test_paths ) )
+        print( "Decomposing paths..." )
+        all_unique_paths = self.decompose_paths( raw_paths, dictionary, self.complete_file, self.complete_file_sequence )
+        random.shuffle( all_unique_paths )
 
         print( "Creating dictionaries..." )
-        train_paths_dict = self.prepare_paths_labels_dictionary( self.train_file )
-        test_paths_dict = self.prepare_paths_labels_dictionary( self.test_file )
-        train_paths_dict = self.remove_duplicate_paths( train_paths_dict, test_paths_dict )
+        multilabels_paths = self.prepare_paths_labels_dictionary( reverse_dictionary, all_unique_paths, self.complete_paths_pos, self.complete_paths_names, self.complete_paths_pos_dict, self.complete_paths_names_dict )
 
-        self.write_to_file( self.test_data_labels_dict, self.test_data_labels_names_dict, test_paths_dict, reverse_dictionary )
-        self.write_to_file( self.train_data_labels_dict, self.train_data_labels_names_dict, train_paths_dict, reverse_dictionary )
+        print( "Complete data: %d" % len( multilabels_paths ) )
+        train_paths_dict, test_paths_dict = self.split_test_train_data( multilabels_paths )
 
         print( "Train data: %d" % len( train_paths_dict ) )
         print( "Test data: %d" % len( test_paths_dict ) )
+        self.write_to_file( self.test_data_labels_dict, self.test_data_labels_names_dict, test_paths_dict, reverse_dictionary )
+        self.write_to_file( self.train_data_labels_dict, self.train_data_labels_names_dict, train_paths_dict, reverse_dictionary )
+
         print( "Padding paths with 0s..." )
         test_data, test_labels = self.pad_paths( test_paths_dict, num_classes )
         train_data, train_labels = self.pad_paths( train_paths_dict, num_classes )
@@ -315,7 +319,6 @@ class PrepareData:
 
         print( "Randomizing the train data..." )
         train_data, train_labels = self.randomize_data( train_data, train_labels )
-
+        
         self.save_as_h5py( train_data, train_labels, self.train_data )
         self.save_as_h5py( test_data, test_labels, self.test_data )
-
