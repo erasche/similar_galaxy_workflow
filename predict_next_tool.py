@@ -28,10 +28,7 @@ class PredictNextTool:
         self.network_config_json_path = self.current_working_dir + "/data/model.json"
         self.mean_test_absolute_precision = self.current_working_dir + "/data/mean_test_absolute_precision.txt"
         self.mean_test_compatibility_precision = self.current_working_dir + "/data/mean_test_compatibility_precision.txt"
-        self.mean_test_actual_absolute_precision = self.current_working_dir + "/data/mean_test_actual_absolute_precision.txt"
-        self.mean_test_actual_compatibility_precision = self.current_working_dir + "/data/mean_test_actual_compatibility_precision.txt"
         self.mean_train_loss = self.current_working_dir + "/data/mean_train_loss.txt"
-        self.mean_test_loss = self.current_working_dir + "/data/mean_test_loss.txt"
         self.data_rev_dict = self.current_working_dir + "/data/data_rev_dict.txt"
         self.data_dictionary = self.current_working_dir + "/data/data_dictionary.txt"
         self.compatible_tools_filetypes = self.current_working_dir + "/data/compatible_tools.json"
@@ -56,21 +53,29 @@ class PredictNextTool:
         return hf.get( "data" ), hf.get( "data_labels" )
 
     @classmethod
-    def evaluate_mlp( self, test_data_share, max_seq_len, dense_units=256 ):
+    def evaluate_mlp( self, network_config, train_data, train_labels, test_data, test_labels, dictionary, reverse_dictionary, next_compatible_tools ):
         """
         Predict using multi-layer perceptron
         """
-        print ( "Dividing data..." )
-        # get training and test data and their labels
-        model = MLPClassifier( hidden_layer_sizes=( network_config[ "units" ], network_config[ "units" ] ), verbose=True, learning_rate='adaptive', batch_size=network_config[ "batch_size" ], tol=network_config[ "toi" ] )
-        print( "Training Multi-layer perceptron..." )
-        model.fit( train_data, train_labels )
+        model = MLPClassifier( hidden_layer_sizes=( network_config[ "units" ], network_config[ "units" ] ), verbose=True,
+                               learning_rate='adaptive', batch_size=network_config[ "batch_size" ], tol=network_config[ "toi" ],
+                               solver=network_config[ "solver" ], activation=network_config[ "activation" ],  max_iter=1, warm_start=True )
+        n_epochs = network_config[ "n_epochs" ]
+        losses = np.zeros( n_epochs )
+        absolute_precision = np.zeros( n_epochs )
+        compatible_precision = np.zeros( n_epochs )
+        print( "Training Multi-layer perceptron for %d epochs" % n_epochs )
+        for iteration in range( n_epochs ):
+            model.fit( train_data, train_labels )
+            predictions = model.predict_proba( test_data )
+            topk_abs_pred, topk_compatible_pred = self.verify_predictions( test_data, test_labels, predictions, dictionary, reverse_dictionary,     next_compatible_tools )
+            absolute_precision[ iteration ] = topk_abs_pred
+            compatible_precision[ iteration ] = topk_compatible_pred
+            losses[ iteration ] = model.loss_
         print ( "Training finished" )
-        print( "Predicting..." )
-        predictions = model.predict_proba( test_data )
-        topk_abs_pred, topk_compatible_pred = self.verify_predictions( test_data, test_labels, predictions, dictionary, reverse_dictionary, next_compatible_tools )
-        np.savetxt( self.mean_test_compatibility_precision, topk_compatible_pred, delimiter="," )
-        np.savetxt( self.mean_test_actual_absolute_precision, topk_abs_pred, delimiter="," )
+        np.savetxt( self.mean_train_loss, losses, delimiter="," )
+        np.savetxt( self.mean_test_compatibility_precision, absolute_precision, delimiter="," )
+        np.savetxt( self.mean_test_absolute_precision, compatible_precision, delimiter="," )
 
     @classmethod 
     def verify_predictions( self, test_data, test_labels, predictions, dictionary, reverse_dictionary, next_compatible_tools ):
@@ -99,20 +104,21 @@ class PredictNextTool:
             seq_last_tool = sequence_tool_names[ -1 ]
             next_possible_tools = next_compatible_tools[ seq_last_tool ].split( "," )
             for pred_pos in topk_prediction_pos:
-                if pred_pos in actual_classes_pos or reverse_dictionary[ int( pred_pos ) ] in next_possible_tools:
+                if pred_pos in actual_classes_pos:
                     topk_acc += 1.0
             topk_acc = topk_acc / float( topk )
             topk_abs_pred[ i ] = topk_acc
-
             topk_compatible_acc = topk_acc
             for pred_pos in topk_prediction_pos:
-                if reverse_dictionary[ int( pred_pos ) ] in next_possible_tools:
+                if reverse_dictionary[ str( int( pred_pos ) + 1 ) ] in next_possible_tools:
                     topk_compatible_acc += 1.0 / float( topk )
             topk_compatible_pred[ i ] = topk_compatible_acc
-        print( "Average topk absolute precision: %.2f" % ( np.mean( topk_abs_pred ) ) )
-        print( "Average topk compatible precision: %.2f" % ( np.mean( topk_compatible_pred ) ) )
-        return topk_abs_pred, topk_compatible_pred
-        
+        mean_abs_precision = np.mean( topk_abs_pred )
+        mean_compatible_precision = np.mean( topk_compatible_pred )
+        print( "Average topk absolute precision: %.2f" % ( mean_abs_precision ) )
+        print( "Average topk compatible precision: %.2f" % ( mean_compatible_precision ) )
+        print( "------------" )
+        return mean_abs_precision, mean_compatible_precision
 
 if __name__ == "__main__":
 
@@ -121,17 +127,19 @@ if __name__ == "__main__":
         exit( 1 )
     network_config = {
         "experiment_runs": 1,
-        "n_epochs": 100,
+        "n_epochs": 50,
         "units": 128,
         "batch_size": 128,
-        "toi": 1.0,
+        "toi": 1e-5,
+        "solver": 'adam',
+        "activation": 'relu',
         "learning_rate": 0.001,
         "max_seq_len": 25,
         "test_share": 0.2
     }
     start_time = time.time()
     connections = extract_workflow_connections.ExtractWorkflowConnections()
-    connections.read_tabular_file()   
+    connections.read_tabular_file()
     for run in range( network_config[ "experiment_runs" ] ):
         print ( "Dividing data..." )
         data = prepare_data.PrepareData( network_config[ "max_seq_len" ], network_config[ "test_share" ] )

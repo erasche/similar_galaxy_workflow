@@ -105,6 +105,7 @@ class PrepareData:
         Create a dictionary of sequences with their labels for training and test paths
         """
         paths_labels = dict()
+        paths_labels_names = dict()
         random.shuffle( paths )
         for item in paths:
             if item and item not in "":
@@ -236,8 +237,6 @@ class PrepareData:
         for ctr, item in enumerate( repeated_train_sample ):
             tr_data_array[ ctr ] = item
             tr_label_array[ ctr ] = repeated_train_sample_label[ ctr ]
-        print tr_data_array.shape
-        print tr_label_array.shape
         train_data = np.vstack( ( train_data, tr_data_array  ) )
         train_labels = np.vstack( ( train_labels, tr_label_array ) )
         return train_data, train_labels
@@ -313,8 +312,8 @@ class PrepareData:
         #print( "Restoring the original data distribution in training data..." )
         #train_data, train_labels = self.reconstruct_original_distribution( reverse_dictionary, train_data, train_labels )
 
-        print( "Randomizing the train data..." )
-        train_data, train_labels = self.randomize_data( train_data, train_labels )
+        #print( "Randomizing the train data..." )
+        #train_data, train_labels = self.randomize_data( train_data, train_labels )
         
         self.save_as_h5py( train_data, train_labels, self.train_data )
         self.save_as_h5py( test_data, test_labels, self.test_data )
