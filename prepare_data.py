@@ -283,7 +283,6 @@ class PrepareData:
         processed_data, raw_paths = self.process_processed_data( self.raw_file )
         dictionary, reverse_dictionary = self.create_data_dictionary( processed_data )
         num_classes = len( dictionary )
-
         print( "Raw paths: %d" % len( raw_paths ) )
         random.shuffle( raw_paths )
 
@@ -312,8 +311,8 @@ class PrepareData:
         #print( "Restoring the original data distribution in training data..." )
         #train_data, train_labels = self.reconstruct_original_distribution( reverse_dictionary, train_data, train_labels )
 
-        #print( "Randomizing the train data..." )
-        #train_data, train_labels = self.randomize_data( train_data, train_labels )
+        print( "Randomizing the train data..." )
+        train_data, train_labels = self.randomize_data( train_data, train_labels )
         
         self.save_as_h5py( train_data, train_labels, self.train_data )
         self.save_as_h5py( test_data, test_labels, self.test_data )
