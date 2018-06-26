@@ -1,5 +1,7 @@
 """
-Prepare the workflows to be used by downstream machine learning algorithms
+Prepare the workflow paths to be used by downstream
+machine learning algorithm. The paths are divided
+into the test and training sets
 """
 
 import os
@@ -10,29 +12,30 @@ import random
 import h5py
 
 
+CURRENT_WORKING_DIR = os.getcwd()
+RAW_FILE = CURRENT_WORKING_DIR + "/data/workflow_connections_paths.txt"
+DATA_DICTIONARY = CURRENT_WORKING_DIR + "/data/data_dictionary.txt"
+DATA_REV_DICT = CURRENT_WORKING_DIR + "/data/data_rev_dict.txt"
+COMPLETE_FILE = CURRENT_WORKING_DIR + "/data/complete_file.txt"
+COMPLETE_FILE_SEQUENCE = CURRENT_WORKING_DIR + "/data/complete_file_sequence.txt"
+COMPLETE_PATHS_POS = CURRENT_WORKING_DIR + "/data/complete_paths_pos.txt"
+COMPLETE_PATHS_NAMES = CURRENT_WORKING_DIR + "/data/complete_paths_names.txt"
+COMPLETE_PATHS_POS_DICT = CURRENT_WORKING_DIR + "/data/complete_paths_pos_dict.json"
+COMPLETE_PATHS_NAMES_DICT = CURRENT_WORKING_DIR + "/data/complete_paths_names_dict.json"
+TRAIN_DATA_LABELS_DICT = CURRENT_WORKING_DIR + "/data/train_data_labels_names_dict.json"
+TRAIN_DATA_LABELS_NAMES_DICT = CURRENT_WORKING_DIR + "/data/train_data_labels_names_dict.json"
+TEST_DATA_LABELS_DICT = CURRENT_WORKING_DIR + "/data/test_data_labels_dict.json"
+TEST_DATA_LABELS_NAMES_DICT = CURRENT_WORKING_DIR + "/data/test_data_labels_names_dict.json"
+PATHS_FREQUENCY = CURRENT_WORKING_DIR + "/data/workflow_paths_freq.txt"
+TRAIN_DATA = CURRENT_WORKING_DIR + "/data/train_data.h5"
+TEST_DATA = CURRENT_WORKING_DIR + "/data/test_data.h5"
+
+
 class PrepareData:
 
     @classmethod
     def __init__( self, max_seq_length, test_data_share ):
         """ Init method. """
-        self.current_working_dir = os.getcwd()
-        self.raw_file = self.current_working_dir + "/data/workflow_connections_paths.txt"
-        self.data_dictionary = self.current_working_dir + "/data/data_dictionary.txt"
-        self.data_rev_dict = self.current_working_dir + "/data/data_rev_dict.txt"
-        self.complete_file = self.current_working_dir + "/data/complete_file.txt"
-        self.complete_file_sequence = self.current_working_dir + "/data/complete_file_sequence.txt"
-        self.complete_paths_pos = self.current_working_dir + "/data/complete_paths_pos.txt"
-        self.complete_paths_names = self.current_working_dir + "/data/complete_paths_names.txt"
-        self.complete_paths_pos_dict = self.current_working_dir + "/data/complete_paths_pos_dict.json"
-        self.complete_paths_names_dict = self.current_working_dir + "/data/complete_paths_names_dict.json"
-        self.train_data_labels_dict = self.current_working_dir + "/data/train_data_labels_dict.json"
-        self.train_data_labels_names_dict = self.current_working_dir + "/data/train_data_labels_names_dict.json"
-        self.test_data_labels_dict = self.current_working_dir + "/data/test_data_labels_dict.json"
-        self.test_data_labels_names_dict = self.current_working_dir + "/data/test_data_labels_names_dict.json"
-        self.compatible_tools_filetypes = self.current_working_dir + "/data/compatible_tools.json"
-        self.paths_frequency = self.current_working_dir + "/data/workflow_paths_freq.txt"
-        self.train_data = self.current_working_dir + "/data/train_data.h5"
-        self.test_data = self.current_working_dir + "/data/test_data.h5"
         self.max_tool_sequence_len = max_seq_length
         self.test_share = test_data_share
 
@@ -49,8 +52,9 @@ class PrepareData:
         for item in raw_paths:
             split_items = item.split( "," )
             for token in split_items:
-                if token not in tokens:
+                if token is not "":
                     tokens.append( token )
+        tokens = list( set( tokens ) )
         tokens = np.array( tokens )
         tokens = np.reshape( tokens, [ -1, ] )
         return tokens, raw_paths
@@ -65,9 +69,9 @@ class PrepareData:
         for word, _ in count:
             dictionary[ word ] = len( dictionary ) + 1
         reverse_dictionary = dict( zip( dictionary.values(), dictionary.keys() ) )
-        with open( self.data_dictionary, 'w' ) as data_dict:
+        with open( DATA_DICTIONARY, 'w' ) as data_dict:
             data_dict.write( json.dumps( dictionary ) )
-        with open( self.data_rev_dict, 'w' ) as data_rev_dict:
+        with open( DATA_REV_DICT, 'w' ) as data_rev_dict:
             data_rev_dict.write( json.dumps( reverse_dictionary ) )
         return dictionary, reverse_dictionary
 
@@ -79,13 +83,14 @@ class PrepareData:
         sub_paths_pos = list()
         sub_paths_names = list()
         for index, item in enumerate( paths ):
-            tools = item.split( "," )
-            len_tools = len( tools )
-            if len_tools <= self.max_tool_sequence_len:
-                tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in tools ]
-                if len( tools_pos ) > 1:
-                    sub_paths_pos.append( ",".join( tools_pos ) )
-                    sub_paths_names.append(  ",".join( tools ) )
+            if item is not "":
+                tools = item.split( "," )
+                len_tools = len( tools )
+                if len_tools <= self.max_tool_sequence_len:
+                    tools_pos = [ str( dictionary[ str( tool_item ) ] ) for tool_item in tools ]
+                    if len( tools_pos ) > 1:
+                        sub_paths_pos.append( ",".join( tools_pos ) )
+                        sub_paths_names.append(  ",".join( tools ) )
         sub_paths_pos = list( set( sub_paths_pos ) )
         sub_paths_names = list( set( sub_paths_names ) )
         with open( file_pos, "w" ) as sub_paths_file_pos:
@@ -113,7 +118,7 @@ class PrepareData:
                 if train_tools in paths_labels:
                     paths_labels[ train_tools ] += "," + label
                 else:
-                    paths_labels[ train_tools ] = label            
+                    paths_labels[ train_tools ] = label
         with open( paths_file_pos, "w" ) as write_paths_file_pos:
             for item in paths:
                 write_paths_file_pos.write( "%s\n" % item )
@@ -131,6 +136,57 @@ class PrepareData:
         return paths_labels
 
     @classmethod
+    def pad_paths( self, paths_dictionary, num_classes ):
+        """
+        Add padding to the tools sequences and create multi-hot encoded labels
+        """
+        size_data = len( paths_dictionary )
+        data_mat = np.zeros( [ size_data, self.max_tool_sequence_len ] )
+        label_mat = np.zeros( [ size_data, num_classes + 1 ] )
+        train_counter = 0
+        for train_seq, train_label in list( paths_dictionary.items() ):
+            positions = train_seq.split( "," )
+            start_pos = self.max_tool_sequence_len - len( positions )
+            for id_pos, pos in enumerate( positions ):
+                data_mat[ train_counter ][ start_pos + id_pos ] = int( pos )
+            for label_item in train_label.split( "," ):
+                label_mat[ train_counter ][ int( label_item ) ] = 1.0
+            train_counter += 1
+        return data_mat, label_mat
+
+    @classmethod
+    def write_to_file( self, file_path, file_names_path, dictionary, reverse_dictionary ):
+        """
+        Write to file
+        """
+        path_seq_names = dict()
+        with open( file_path, "w" ) as dict_file:
+            dict_file.write( json.dumps( dictionary ) )
+        for item in dictionary:
+            path_names = ",".join( [ reverse_dictionary[ int( pos ) ] for pos in item.split( "," ) ] )
+            path_label_names = ",".join( [ reverse_dictionary[ int( pos ) ] for pos in dictionary[ item ].split( "," ) ] )
+            path_seq_names[ path_names ] = path_label_names
+        with open( file_names_path, "w" ) as multilabel_file:
+            multilabel_file.write( json.dumps( path_seq_names ) )
+
+    @classmethod
+    def split_test_train_data( self, multilabels_paths ):
+        """
+        Split into test and train data randomly for each run
+        """
+        train_dict = dict()
+        test_dict = dict()
+        all_paths = multilabels_paths.keys()
+        random.shuffle( list( all_paths ) )
+        split_number = int( self.test_share * len( all_paths ) )
+        for index, path in enumerate( list( all_paths ) ):
+            if index < split_number:
+                test_dict[ path ] = multilabels_paths[ path ]
+            else:
+                train_dict[ path ] = multilabels_paths[ path ]
+        return train_dict, test_dict
+
+    @classmethod
     def randomize_data( self, train_data, train_labels ):
         """
         Randomize the train data after its inflation
@@ -145,7 +201,7 @@ class PrepareData:
             rand_train_data[ index ] = train_data[ random_index ]
             rand_train_labels[ index ] = train_labels[ random_index ]
         return rand_train_data, rand_train_labels
-    
+
     @classmethod
     def reconstruct_original_distribution( self, reverse_dictionary, train_data, train_labels ):
         """
@@ -155,11 +211,10 @@ class PrepareData:
         repeated_train_sample = list()
         repeated_train_sample_label = list()
         train_data_size = train_data.shape[ 0 ]
-        with open( self.paths_frequency, "r" ) as frequency:
+        with open( PATHS_FREQUENCY, "r" ) as frequency:
             paths_frequency = json.loads( frequency.read() )
         for i in range( train_data_size ):
             label_tool_pos = np.where( train_labels[ i ] > 0 )[ 0 ]
-            train_sample = np.reshape( train_data[ i ], ( 1, train_data.shape[ 1 ] ) )
             train_sample_pos = np.where( train_data[ i ] > 0 )[ 0 ]
             train_sample_tool_pos = train_data[ i ][ train_sample_pos[ 0 ]: ]
             sample_tool_names = ",".join( [ reverse_dictionary[ int( tool_pos ) ] for tool_pos in train_sample_tool_pos ] )
@@ -174,7 +229,7 @@ class PrepareData:
                         tr_label = np.tile( train_labels[ i ], ( adjusted_freq, 1 ) )
                         repeated_train_sample.extend( tr_data )
                         repeated_train_sample_label.extend( tr_label )
-                except Exception as key_error:
+                except Exception:
                     continue
             print( "Path reconstructed: %d" % i )
         new_data_len = len( repeated_train_sample )
@@ -197,79 +252,17 @@ class PrepareData:
         train_samples = list()
         test_samples = list()
         for i in range( train_data_size ):
-            train_sample = np.reshape( train_data[ i ], ( 1, train_data.shape[ 1 ] ) )
             train_sample_pos = np.where( train_data[ i ] > 0 )[ 0 ]
             train_sample_tool_pos = train_data[ i ][ train_sample_pos[ 0 ]: ]
             sample_tool_names = ",".join( [ str(tool_pos) for tool_pos in train_sample_tool_pos ] )
             train_samples.append( sample_tool_names )
         for i in range( test_data_size ):
-            test_sample = np.reshape( test_data[ i ], ( 1, test_data.shape[ 1 ] ) )
             test_sample_pos = np.where( test_data[ i ] > 0 )[ 0 ]
             test_sample_tool_pos = test_data[ i ][ test_sample_pos[ 0 ]: ]
             sample_tool_names = ",".join( [ str(tool_pos) for tool_pos in test_sample_tool_pos ] )
             test_samples.append( sample_tool_names )
         intersection = list( set( train_samples ).intersection( set( test_samples ) ) )
         print( "Overlap in train and test: %d" % len( intersection ) )
-
-    @classmethod
-    def pad_paths( self, paths_dictionary, num_classes ):
-        """
-        Add padding to the tools sequences and create multi-hot encoded labels
-        """
-        size_data = len( paths_dictionary )
-        data_mat = np.zeros( [ size_data, self.max_tool_sequence_len ] )
-        label_mat = np.zeros( [ size_data, num_classes + 1 ] )
-        train_counter = 0
-        for train_seq, train_label in list( paths_dictionary.items() ):
-            positions = train_seq.split( "," )
-            start_pos = self.max_tool_sequence_len - len( positions )
-            for id_pos, pos in enumerate( positions ):
-                data_mat[ train_counter ][ start_pos + id_pos ] = int( pos )
-            for label_item in train_label.split( "," ):
-                label_mat[ train_counter ][ int( label_item ) ] = 1.0
-            train_counter += 1
-        return data_mat, label_mat
-
-    @classmethod
-    def get_filetype_compatibility( self, filetypes_path, dictionary ):
-        """
-        Get the next tools with compatible file types for each tool
-        """
-        with open( filetypes_path, "r" ) as compatible_tools_file:
-            tools_compatibility = json.loads( compatible_tools_file.read() )
-        return tools_compatibility
-
-    @classmethod
-    def write_to_file( self, file_path, file_names_path, dictionary, reverse_dictionary ):
-        """
-        Write to file
-        """
-        path_seq_names = dict()
-        with open( file_path, 'w' ) as multilabel_file:
-            multilabel_file.write( json.dumps( dictionary ) )
-        for item in dictionary:
-            path_names = ",".join( [ reverse_dictionary[ int( pos ) ] for pos in item.split( "," ) ] )
-            path_label_names = ",".join( [ reverse_dictionary[ int( pos ) ] for pos in dictionary[ item ].split( "," ) ] )
-            path_seq_names[ path_names ] = path_label_names
-        with open( file_names_path, "w" ) as multilabel_file:
-            multilabel_file.write( json.dumps( path_seq_names ) )
-        
-    @classmethod
-    def split_test_train_data( self, multilabels_paths ):
-        """
-        Split into test and train data randomly for each run
-        """
-        train_dict = dict()
-        test_dict = dict()
-        all_paths = multilabels_paths.keys()
-        random.shuffle( list( all_paths ) )
-        split_number = int( self.test_share * len( all_paths ) )
-        for index, path in enumerate( list( all_paths ) ):
-            if index < split_number:
-                test_dict[ path ] = multilabels_paths[ path ]
-            else:
-                train_dict[ path ] = multilabels_paths[ path ]
-        return train_dict, test_dict
 
     @classmethod
     def save_as_h5py( self, data, label, file_path ):
@@ -286,26 +279,27 @@ class PrepareData:
         """
         Convert the training and test paths into corresponding numpy matrices
         """
-        processed_data, raw_paths = self.process_processed_data( self.raw_file )
+        processed_data, raw_paths = self.process_processed_data( RAW_FILE )
         dictionary, reverse_dictionary = self.create_data_dictionary( processed_data )
         num_classes = len( dictionary )
+
         print( "Raw paths: %d" % len( raw_paths ) )
         random.shuffle( raw_paths )
 
         print( "Decomposing paths..." )
-        all_unique_paths = self.decompose_paths( raw_paths, dictionary, self.complete_file, self.complete_file_sequence )
+        all_unique_paths = self.decompose_paths( raw_paths, dictionary, COMPLETE_FILE, COMPLETE_FILE_SEQUENCE )
         random.shuffle( all_unique_paths )
 
         print( "Creating dictionaries..." )
-        multilabels_paths = self.prepare_paths_labels_dictionary( reverse_dictionary, all_unique_paths, self.complete_paths_pos, self.complete_paths_names, self.complete_paths_pos_dict, self.complete_paths_names_dict )
+        multilabels_paths = self.prepare_paths_labels_dictionary( reverse_dictionary, all_unique_paths, COMPLETE_PATHS_POS, COMPLETE_PATHS_NAMES, COMPLETE_PATHS_POS_DICT, COMPLETE_PATHS_NAMES_DICT )
 
         print( "Complete data: %d" % len( multilabels_paths ) )
         train_paths_dict, test_paths_dict = self.split_test_train_data( multilabels_paths )
 
         print( "Train data: %d" % len( train_paths_dict ) )
         print( "Test data: %d" % len( test_paths_dict ) )
-        self.write_to_file( self.test_data_labels_dict, self.test_data_labels_names_dict, test_paths_dict, reverse_dictionary )
-        self.write_to_file( self.train_data_labels_dict, self.train_data_labels_names_dict, train_paths_dict, reverse_dictionary )
+        self.write_to_file( TEST_DATA_LABELS_DICT, TEST_DATA_LABELS_NAMES_DICT, test_paths_dict, reverse_dictionary )
+        self.write_to_file( TRAIN_DATA_LABELS_DICT, TRAIN_DATA_LABELS_NAMES_DICT, train_paths_dict, reverse_dictionary )
 
         print( "Padding paths with 0s..." )
         test_data, test_labels = self.pad_paths( test_paths_dict, num_classes )
@@ -314,11 +308,12 @@ class PrepareData:
         print( "Verifying overlap in train and test data..." )
         self.verify_overlap( train_data, test_data, reverse_dictionary )
 
-        #print( "Restoring the original data distribution in training data..." )
-        #train_data, train_labels = self.reconstruct_original_distribution( reverse_dictionary, train_data, train_labels )
+        # print( "Restoring the original data distribution in training data..." )
+        # train_data, train_labels = self.reconstruct_original_distribution( reverse_dictionary, train_data, train_labels )
 
         print( "Randomizing the train data..." )
         train_data, train_labels = self.randomize_data( train_data, train_labels )
-        
-        self.save_as_h5py( train_data, train_labels, self.train_data )
-        self.save_as_h5py( test_data, test_labels, self.test_data )
+
+        # save the training and test paths as h5 files
+        self.save_as_h5py( train_data, train_labels, TRAIN_DATA )
+        self.save_as_h5py( test_data, test_labels, TEST_DATA )
